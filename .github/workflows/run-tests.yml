@@ -63,4 +63,5 @@ jobs:
       - name: Run tests
         run: |
           uv run python manage.py collectstatic
+          uv run python manage.py migrate
           uv run python manage.py test --noinput --failfast --verbosity 0 --settings wastd.test-settings
