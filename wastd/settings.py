@@ -1,12 +1,13 @@
+import os
+import sys
+import tomllib
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import dj_database_url
 from dbca_utils.utils import env
 from django.core.exceptions import DisallowedHost
 from django.db.utils import OperationalError
-import dj_database_url
-import os
-from pathlib import Path
-import sys
-import tomllib
-from zoneinfo import ZoneInfo
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, "subdir")
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -81,7 +82,7 @@ INSTALLED_APPS = [
     "users",
     "observations",
     "marine_mammal_incidents",
-    "wamtram2"
+    "wamtram2",
 ]
 MIDDLEWARE = [
     "wastd.middleware.HealthCheckMiddleware",
@@ -137,12 +138,9 @@ MAP_WIDGETS = {
             "center": (-31.996226, 115.883947),
             "scrollZoom": True,
             "style": "mapbox://styles/dpawasi/ckigwmxrx606g19msw0g882gj",
-            #"style": "mapbox://styles/mapbox/streets-v11",
+            # "style": "mapbox://styles/mapbox/streets-v11",
         },
-        "geocoderOptions": {
-            "zoom": 7,
-            "countries": "au"
-        }
+        "geocoderOptions": {"zoom": 7, "countries": "au"},
     }
 }
 GEOSERVER_URL = os.environ.get("GEOSERVER_URL", "")
@@ -167,13 +165,13 @@ SITE_NAME = os.environ.get("SITE_NAME", "Turtles Database")
 SITE_TITLE = os.environ.get("SITE_TITLE", "Turtles Database")
 SITE_CODE = os.environ.get("SITE_CODE", "Turtles")
 project = tomllib.load(open(os.path.join(BASE_DIR, "pyproject.toml"), "rb"))
-VERSION_NO = project["tool"]["poetry"]["version"]
+VERSION_NO = project["project"]["version"]
 
 
 # Database configuration
 DATABASES = {
     # Defined in DATABASE_URL env variable.
-    'default': dj_database_url.config(default=os.getenv('DATABASE_URL')),
+    "default": dj_database_url.config(default=os.getenv("DATABASE_URL")),
     "wamtram2": {
         "ENGINE": "mssql",
         "HOST": os.environ.get("DB_HOST", "host"),
@@ -299,7 +297,7 @@ PHONENUMBER_DB_FORMAT = "INTERNATIONAL"
 # django-bootstrap4 preconfigured settings.
 # Reference: https://django-bootstrap4.readthedocs.io/en/latest/settings.html
 BOOTSTRAP4 = {
-    'success_css_class': '',  # Don't add `is-valid` to every form field by default.
+    "success_css_class": "",  # Don't add `is-valid` to every form field by default.
 }
 
 
