@@ -13,7 +13,7 @@ readme = "README.md"
 requires-python = ">=3.12,<4.0"
 
 dependencies = [
-  "django==4.2.16",
+  "django==4.2.20",
   "psycopg[binary,pool]==3.2.5",
   "dbca-utils==2.0.3",
   "django-extensions==3.2.3",
@@ -26,8 +26,8 @@ dependencies = [
   "django-fsm-admin-maintained==1.2.6",
   "python-slugify==8.0.4",
   "django-filter==24.1",
-  "django-polymorphic==3.1.0",          # TODO: deprecate
-  "setuptools>=77.0.1",                 # Required for django-polymorphic
+  "django-polymorphic==3.1.0", # TODO: deprecate
+  "setuptools>=77.0.1", # Required for django-polymorphic
   "django-reversion==5.0.12",
   "django-crispy-forms==1.14.0",
   "xmltodict==0.13.0",
