@@ -3,7 +3,7 @@
 This project is the Department of Biodiversity, Conservation and Attractions
 Sea Turtles Database corporate application.
 
-# Project layout / description
+## Project layout / description
 
 - `wastd`: the core Django project directory, containing common settings, configuration and templates.
 - `observations`: the primary data model for the project, defining the `Encounter` and `Observation` models and subclasses.
@@ -16,23 +16,31 @@ the `tagging` application was created as an interim step to refactoring the lega
 Encounter/Observation model defined in the `observations` application. It is expected that `wamtram` will
 be removed after data migration, and that `tagging` will be removed after the data is refactored.
 
-# Installation
+## Installation
 
-The recommended way to set up this project for development is using
-[Poetry](https://python-poetry.org/docs/) to install and manage a virtual Python
-environment. With Poetry installed, change into the project directory and run:
+This project uses [uv](https://docs.astral.sh/uv/) to manage and install Python dependencies.
+With uv installed, install the required Python version (see `pyproject.toml`). Example:
 
-    poetry install
+    uv python install 3.12
 
-To run Python commands in the virtualenv, thereafter run them like so:
+Change into the project directory and run:
 
-    poetry run python manage.py
+    uv python pin 3.12
+    uv sync
 
-Manage new or updating project dependencies with Poetry also, like so:
+Activate the virtualenv like so:
 
-    poetry add newpackage==1.0
+    source .venv/bin/activate
 
-# Environment variables
+To run Python commands in the activated virtualenv, thereafter run them like so:
+
+    python manage.py
+
+Manage new or updated project dependencies with uv also, like so:
+
+    uv add newpackage==1.0
+
+## Environment variables
 
 This project uses **python-dotenv** to set environment variables (in a `.env` file).
 The following variables are required for the project to run:
@@ -45,17 +53,17 @@ Variables below may also need to be defined (context-dependent):
     DEBUG=True
     GEOSERVER_URL=https://geoserver.url/service
 
-# Running
+## Running
 
 Use `runserver` to run a local copy of the application:
 
-    poetry run python manage.py runserver 0:8080
+    python manage.py runserver 0:8080
 
 Run console commands manually:
 
-    poetry run python manage.py shell_plus
+    python manage.py shell_plus
 
-# Media uploads
+## Media uploads
 
 The production system stores media uploads in Azure blob storage.
 Credentials for doing so should be defined in the following environment
@@ -69,31 +77,31 @@ To bypass this and use local media storage (for development, etc.) simply set
 the `LOCAL_MEDIA_STORAGE=True` environment variable and create a writable
 `media` directory in the project directory.
 
-# Docker image
+## Docker image
 
 To build a new Docker image from the `Dockerfile`:
 
     docker image build -t ghcr.io/dbca-wa/wastd .
 
-# Docs
+## Docs
 
 Use `sphinx-build` build docs locally:
 
-    poetry run sphinx-build -b html docs _build
+    sphinx-build -b html docs _build
 
 Use `http.server` serve them:
 
-    poetry run python -m http.server --directory _build 8080
+    python -m http.server --directory _build 8080
 
-# Pre-commit hooks
+## Pre-commit hooks
 
 This project includes the following pre-commit hooks:
 
-- TruffleHog (credential scanning): https://github.com/marketplace/actions/trufflehog-oss
+- TruffleHog (credential scanning): <https://github.com/marketplace/actions/trufflehog-oss>
 
 Pre-commit hooks may have additional system dependencies to run. Optionally
 install pre-commit hooks locally like so:
 
-    poetry run pre-commit install
+    pre-commit install
 
-Reference: https://pre-commit.com/
+Reference: <https://pre-commit.com/>
