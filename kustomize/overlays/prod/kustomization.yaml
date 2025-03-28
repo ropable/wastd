@@ -26,4 +26,3 @@ patches:
 images:
   - name: ghcr.io/dbca-wa/wastd
     newTag: 2.1.8
-
