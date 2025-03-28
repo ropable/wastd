@@ -25,7 +25,7 @@ from django.core.exceptions import PermissionDenied,ValidationError
 import pandas as pd
 from datetime import datetime, date, time
 from django.db import transaction
-from django.apps import apps 
+from django.apps import apps
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt, RGBColor
@@ -72,7 +72,7 @@ from .models import (
     TrtDamageCauseCodes,
     TrtSamples,
     TrtDocumentTypes
-    
+
 )
 from .forms import TrtDataEntryForm, SearchForm, TrtEntryBatchesForm, TemplateForm, BatchesCodeForm, TrtPersonsForm, TagRegisterForm
 
@@ -126,7 +126,7 @@ class EntryBatchesListView(LoginRequiredMixin, ListView):
             .order_by("-data_entry_id")
             .values("place_code")[:1]
         )
-        
+
         # Annotate the queryset with entry_count, last_place_code, and do_not_process_count
         queryset = queryset.annotate(
             entry_count=Count('trtdataentry'),
@@ -157,7 +157,7 @@ class EntryBatchesListView(LoginRequiredMixin, ListView):
         # Attach TrtPlaces objects to each batch in the paginated list
         for batch in page_obj.object_list:
             batch.last_place_code_obj = places_dict.get(batch.last_place_code)
-            
+
             batch.highlight_row = int(batch.do_not_process_count) > 0
 
         context['page_obj'] = page_obj
@@ -180,7 +180,7 @@ class EntryBatchDetailView(LoginRequiredMixin, FormMixin, ListView):
     context_object_name = "object_list"
     paginate_by = 30
     form_class = TrtEntryBatchesForm
-    
+
     def get_initial(self):
         initial = super().get_initial()
         return initial
@@ -193,7 +193,7 @@ class EntryBatchDetailView(LoginRequiredMixin, FormMixin, ListView):
             return super().dispatch(request, *args, **kwargs)
 
         user_organisations = user.organisations.all()
-        
+
         if not user_organisations.exists():
             raise PermissionDenied("You do not have permission to view this batch")
 
@@ -235,7 +235,7 @@ class EntryBatchDetailView(LoginRequiredMixin, FormMixin, ListView):
             queryset = queryset.filter(entry_batch_id=batch_id, do_not_process=True, error_message__isnull=True)
         else:
             queryset = queryset.filter(entry_batch_id=batch_id)
-            
+
         return queryset.select_related('observation_id').order_by("-data_entry_id")
 
     def get_context_data(self, **kwargs):
@@ -243,7 +243,7 @@ class EntryBatchDetailView(LoginRequiredMixin, FormMixin, ListView):
         context["persons"] = {
             person.person_id: person for person in TrtPersons.objects.all()
         }
-        
+
         context['page_title'] = 'Entry Batch Detail - ' + settings.SITE_TITLE
 
         batch = TrtEntryBatches.objects.get(entry_batch_id=self.kwargs.get("batch_id"))
@@ -253,11 +253,11 @@ class EntryBatchDetailView(LoginRequiredMixin, FormMixin, ListView):
             instance=batch,
             initial=initial
         )
-        
+
         # Add a `highlight_row` attribute to each entry if it meets the conditions
         for entry in context['object_list']:
             entry.highlight_row = entry.do_not_process and entry.error_message not in ['None', 'Observation added to database']
-        
+
         context['templates'] = Template.objects.all()
 
         cookies_key_prefix = self.kwargs.get("batch_id")
@@ -267,23 +267,23 @@ class EntryBatchDetailView(LoginRequiredMixin, FormMixin, ListView):
 
         context['cookies_key_prefix'] = cookies_key_prefix
         # context['default_enterer_value'] = context['default_enterer']
-        
+
         # Add entries with do_not_process = True to the context
         context["do_not_process_entries"] = TrtDataEntry.objects.filter(
             entry_batch_id=batch.entry_batch_id,
             do_not_process=True
         ).order_by("-data_entry_id")
-        
+
         # Add entries with do_not_process = False to the context
         context["process_entries"] = TrtDataEntry.objects.filter(
             entry_batch_id=batch.entry_batch_id,
             do_not_process=False
         ).order_by("-data_entry_id")
-        
+
         entries = TrtDataEntry.objects.filter(entry_batch_id=batch.entry_batch_id)
         all_entries_processed = all(entry.observation_id is not None for entry in entries)
         context['all_entries_processed'] = all_entries_processed
-        
+
         return context
 
     def post(self, request, *args, **kwargs):
@@ -357,7 +357,7 @@ class EntryBatchDetailView(LoginRequiredMixin, FormMixin, ListView):
                         comments=comments,
                         entry_date=current_date if current_date else timezone.now(),
                         pr_date_convention=False,
-                        entered_person=entered_person, 
+                        entered_person=entered_person,
                         template=template
                     )
 
@@ -474,19 +474,19 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
         turtle_id = self.kwargs.get("turtle_id")
         entry_id = self.kwargs.get("entry_id")
         cookies_key_prefix = batch_id
-        
+
         do_not_process = self.request.COOKIES.get(f'{cookies_key_prefix}_do_not_process') == 'true'
         if do_not_process:
             initial['do_not_process'] = True
             initial['comments'] = "The data in the sheet doesn't match the database."
-    
-        
+
+
         tag_id = self.request.COOKIES.get(f'{cookies_key_prefix}_tag_id')
         tag_type = self.request.COOKIES.get(f'{cookies_key_prefix}_tag_type')
         tag_side = self.request.COOKIES.get(f'{cookies_key_prefix}_tag_side')
 
         selected_template = self.request.COOKIES.get(f'{cookies_key_prefix}_selected_template')
-        
+
         # If a tag is selected, populate the form with the tag data
         if tag_id and tag_type:
             if tag_type == 'recapture_tag':
@@ -496,7 +496,7 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
                     initial['recapture_right_tag_id'] = tag_id
             elif tag_type == 'recapture_pit_tag':
                 initial['recapture_pittag_id'] = tag_id
-                
+
         if batch_id:
             try:
                 batch = TrtEntryBatches.objects.get(entry_batch_id=batch_id)
@@ -518,7 +518,7 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
                 if not turtle_id:
                     initial['species_code'] = template_data.get('species_code') or ""
                     initial['sex'] = template_data.get('sex') or ""
-                
+
 
         if batch_id:
             initial["entry_batch"] = get_object_or_404(TrtEntryBatches, entry_batch_id=batch_id)
@@ -535,13 +535,13 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
             if trtdataentry.observation_date:
                 adjusted_date = trtdataentry.observation_date - timedelta(hours=8)
                 initial['observation_date'] = adjusted_date
-            
+
             measured_by = trtdataentry.measured_by
             recorded_by = trtdataentry.recorded_by
             tagged_by = trtdataentry.tagged_by
             entered_by = trtdataentry.entered_by
             place_code = trtdataentry.place_code
-            
+
             if place_code:
                 place = TrtPlaces.objects.filter(place_code=place_code).first()
                 if place:
@@ -549,7 +549,7 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
                     self.place_full_name = place.get_full_name()
                 else:
                     self.place_full_name = ""
-            
+
             if measured_by:
                 parts = measured_by.split(" ", 1)
                 first_name, last_name = parts
@@ -600,19 +600,19 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
         entry = form.save()
         #success_url = reverse("wamtram2:find_turtle", args=[batch_id])
         success_url = FindTurtleView.get_clear_cookies_url(batch_id)
-        
+
         if form.instance.do_not_process:
             message = f"Entry created successfully and will be reviewed later. Please write the Entry ID: {entry.data_entry_id} on the data sheet"
             message_tag = 'warning'
         else:
             message = f"Entry created successfully. Entry ID: {entry.data_entry_id}"
             message_tag = 'success'
-        
+
         messages.add_message(self.request, getattr(messages, message_tag.upper()), message)
-        
+
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({
-                'success': True, 
+                'success': True,
                 'redirect_url': success_url,
                 'message': message,
                 'message_tag': message_tag
@@ -622,12 +622,12 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
 
     def form_invalid(self, form):
         error_message = "Error saving the entry. If you cannot resolve the issue, please set aside this data sheet for admin review and continue with the next data sheet."
-        
+
         messages.error(self.request, error_message)
-        
+
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({
-                'success': False, 
+                'success': False,
                 'errors': form.errors,
                 'message': error_message
             })
@@ -648,9 +648,9 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
         batch_id = self.kwargs.get("batch_id")
         cookies_key_prefix = batch_id
         form = kwargs.get('form', context.get('form'))
-        
+
         context['page_title'] = 'New Entry - ' + settings.SITE_TITLE
-        
+
         if form.is_bound:
             context.update({
                 'entered_by_id': form.data.get('entered_by_id'),
@@ -669,12 +669,12 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
             entry = get_object_or_404(TrtDataEntry.objects.select_related('turtle_id'), data_entry_id=entry_id)
             context["entry_id"] = entry_id  # Editing existing entry
             context["entry"] = entry
-            
+
             if entry.observation_id:
                 context["observation"] = entry.observation_id
             else:
                 context["observation"] = None
-        
+
         if batch_id:
             context["batch_id"] = batch_id  # Creating new entry in batch
             batch = TrtEntryBatches.objects.get(entry_batch_id=batch_id)
@@ -693,7 +693,7 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
             context["default_enterer_full_name"] = getattr(self, 'default_enterer_full_name', '')
             context["default_place_full_name"] = getattr(self, 'default_place_full_name', '')
             context["default_place_code"] = getattr(self, 'default_place_code', '')
-        
+
             context['measured_by_full_name'] = getattr(self, 'measured_by_full_name', '')
             context['recorded_by_full_name'] = getattr(self, 'recorded_by_full_name', '')
             context['tagged_by_full_name'] = getattr(self, 'tagged_by_full_name', '')
@@ -710,7 +710,7 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
             except TrtPersons.DoesNotExist:
                 return ""
         return ""
-        
+
     def get_place_name(self, place_code):
         if place_code:
             try:
@@ -775,16 +775,16 @@ class ValidateDataEntryBatchView(LoginRequiredMixin, View):
                 cursor.execute(
                     "EXEC dbo.ValidateDataEntryBatchWEB @ENTRY_BATCH_ID = %s",
                     [self.kwargs["batch_id"]],
-                )                
+                )
                 messages.add_message(request, messages.INFO, "Validation finished.")
-                
+
         except DatabaseError as e:
             messages.add_message(
                 request, messages.ERROR, "Database error: {}".format(e)
             )
-            
+
         return_to = request.GET.get('return_to')
-        
+
         if return_to == 'curation':
             return redirect("wamtram2:entries_curation", batch_id=self.kwargs["batch_id"])
         else:
@@ -794,7 +794,7 @@ class ValidateDataEntryBatchView(LoginRequiredMixin, View):
 class DeleteEntryView(LoginRequiredMixin,DeleteView):
     model = TrtDataEntry
     success_url = reverse_lazy('wamtram2:batches_curation')
-    
+
     def dispatch(self, request, *args, **kwargs):
         # FIXME: Permission check
         if not (
@@ -851,14 +851,14 @@ class ProcessDataEntryBatchView(LoginRequiredMixin, View):
                     [self.kwargs["batch_id"]],
                 )
                 messages.add_message(request, messages.INFO, "Processing finished.")
-                
+
         except DatabaseError as e:
             messages.add_message(
                 request, messages.ERROR, "Database error: {}".format(e)
             )
-            
+
         return_to = request.GET.get('return_to')
-        
+
         if return_to == 'curation':
             return redirect("wamtram2:entries_curation", batch_id=self.kwargs["batch_id"])
         else:
@@ -870,12 +870,12 @@ class FindTurtleView(LoginRequiredMixin, View):
     View class for finding a turtle based on tag and pit tag ID.
     """
     template_name= "wamtram2/find_turtle.html"
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['page_title'] = 'Find Turtle - ' + settings.SITE_TITLE
         return context
-    
+
     def dispatch(self, request, *args, **kwargs):
         if not (
             request.user.groups.filter(name="WAMTRAM2_VOLUNTEER").exists()
@@ -889,9 +889,9 @@ class FindTurtleView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         batch_id = kwargs.get("batch_id")
         form = SearchForm(initial={"batch_id": batch_id})
-        
+
         clear_cookies = request.GET.get('clear_cookies', 'false') == 'true'
-    
+
         if clear_cookies:
             response = render(request, "wamtram2/find_turtle.html", {
                 "form": form,
@@ -901,8 +901,8 @@ class FindTurtleView(LoginRequiredMixin, View):
             })
             self.clear_search_cookies(response, batch_id)
             return response
-            
-        
+
+
         no_turtle_found = request.COOKIES.get(f'{batch_id}_no_turtle_found') == "true"
         tag_id = request.COOKIES.get(f'{batch_id}_tag_id')
         tag_type = request.COOKIES.get(f'{batch_id}_tag_type')
@@ -963,7 +963,7 @@ class FindTurtleView(LoginRequiredMixin, View):
             "template_name": template_name,
             "new_tag_entry": new_tag_entry,
         })
-        
+
     def clear_search_cookies(self, response, batch_id):
         cookies_to_clear = [
             f'{batch_id}_tag_id',
@@ -978,7 +978,7 @@ class FindTurtleView(LoginRequiredMixin, View):
     @staticmethod
     def get_clear_cookies_url(batch_id):
         return reverse("wamtram2:find_turtle", args=[batch_id]) + '?clear_cookies=true'
-    
+
     def set_cookie(self, response, batch_id, tag_id=None, tag_type=None, tag_side=None, no_turtle_found=False, do_not_process=False):
         if tag_id:
             response.set_cookie(f'{batch_id}_tag_id', tag_id, max_age=63072000)
@@ -1003,7 +1003,7 @@ class FindTurtleView(LoginRequiredMixin, View):
         batch = None
         template_name = "No template associated"
         existing_turtle_entry = None
-        
+
         if batch_id:
             batch = TrtEntryBatches.objects.filter(entry_batch_id=batch_id).first()
             if batch and batch.template:
@@ -1025,7 +1025,7 @@ class FindTurtleView(LoginRequiredMixin, View):
                         tag_type = "recapture_pit_tag"
                     else:
                         tag_type = "unknown_tag"
-                        
+
                 if not turtle:
                     existing_turtle_entry = TrtDataEntry.objects.filter(
                         Q(new_left_tag_id__tag_id=tag_id) |
@@ -1036,15 +1036,15 @@ class FindTurtleView(LoginRequiredMixin, View):
                         Q(new_pittag_id_2__pittag_id=tag_id) |
                         Q(new_pittag_id_3__pittag_id=tag_id) |
                         Q(new_pittag_id_4__pittag_id=tag_id),
-                        turtle_id__isnull=False,  
+                        turtle_id__isnull=False,
                         observation_id__isnull=True
                     ).select_related(
-                        'turtle_id', 
-                        'entry_batch', 
-                        'place_code', 
+                        'turtle_id',
+                        'entry_batch',
+                        'place_code',
                         'species_code'
                     ).order_by('-entry_batch__entry_date').first()
-                    
+
                     if existing_turtle_entry:
                         turtle = existing_turtle_entry.turtle_id
                         if any([
@@ -1075,8 +1075,8 @@ class FindTurtleView(LoginRequiredMixin, View):
                             observation_id__isnull=True,
                             turtle_id__isnull=True
                         ).select_related(
-                            'entry_batch', 
-                            'place_code', 
+                            'entry_batch',
+                            'place_code',
                             'species_code'
                         ).order_by('-entry_batch__entry_date').first()
 
@@ -1115,7 +1115,7 @@ class FindTurtleView(LoginRequiredMixin, View):
                     else:
                         response = redirect(reverse('wamtram2:find_turtle', kwargs={'batch_id': batch_id}))
                     return self.set_cookie(response, batch_id, tag_id, tag_type, tag_side)
-                                
+
                 elif new_tag_entry:
                     response = render(request, "wamtram2/find_turtle.html", {
                         "form": form,
@@ -1150,12 +1150,12 @@ class FindTurtleView(LoginRequiredMixin, View):
             })
 
         return self.set_cookie(response, batch_id, tag_id, tag_type, tag_side)
-    
-    
+
+
 class ObservationDetailView(LoginRequiredMixin, DetailView):
     model = TrtObservations
     template_name = "wamtram2/observation_detail.html"
-    
+
     def dispatch(self, request, *args, **kwargs):
         if not (
             request.user.groups.filter(name="WAMTRAM2_VOLUNTEER").exists()
@@ -1175,7 +1175,7 @@ class ObservationDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         obj = self.object
-        
+
         context["observation"] = obj
         context["tags"] = obj.trtrecordedtags_set.all()
         context["pittags"] = obj.trtrecordedpittags_set.all()
@@ -1185,7 +1185,7 @@ class ObservationDetailView(LoginRequiredMixin, DetailView):
             context["damages"] = obj.damages
         except TrtDamage.DoesNotExist:
             context["damages"] = None
-        
+
         if obj.place_code:
             context["place_full_name"] = obj.place_code.get_full_name()
         else:
@@ -1256,7 +1256,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
 
     model = TrtTurtles
     template_name = "wamtram2/trtturtles_detail.html"
-    
+
     def dispatch(self, request, *args, **kwargs):
         """
         Check user permissions before processing the request.
@@ -1270,7 +1270,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
         ):
             return HttpResponseForbidden("You do not have permission to view this record")
         return super().dispatch(request, *args, **kwargs)
-    
+
     def get(self, request, *args, **kwargs):
         """
         Handle GET requests, either display detail view or export Word document
@@ -1288,7 +1288,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
         """
         context = super().get_context_data(**kwargs)
         obj = self.get_object()
-        
+
         # Get unique PIT tags
         pittags = obj.recorded_pittags.all().order_by('pittag_id', '-observation_id')
         seen = set()
@@ -1297,7 +1297,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
             if tag.pittag_id_id not in seen:
                 unique_pittags.append(tag)
                 seen.add(tag.pittag_id_id)
-        
+
         # Get observations and measurements
         observations = obj.trtobservations_set.all()
         observations_data = []
@@ -1305,11 +1305,11 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
             obs_data = {
                 'observation': obs,
                 'measurements': obs.trtmeasurements_set.all(),
-                'tags': obs.trtrecordedtags_set.all(), 
+                'tags': obs.trtrecordedtags_set.all(),
                 'pittags': obs.trtrecordedpittags_set.all()
             }
             observations_data.append(obs_data)
-            
+
         identifications = TrtIdentification.objects.filter(turtle_id=obj.pk)
         context['page_title'] = f'Turtle {obj.pk} - {settings.SITE_TITLE}'
         context.update({
@@ -1317,30 +1317,30 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
             "pittags": unique_pittags,
             "observations_data": observations_data,
             "samples": obj.trtsamples_set.all(),
-            "identifications": identifications 
+            "identifications": identifications
         })
-                
+
         return context
 
     def export_word(self, request, *args, **kwargs):
         """
         Export turtle information to a Word document.
-        
+
         Returns:
             HttpResponse: Word document as a downloadable file.
         """
         turtle = self.get_object()
-        
+
         # Create new document
         doc = Document()
-        
+
         section = doc.sections[0]
         header = section.header
         header_para = header.paragraphs[0]
         header_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         run = header_para.add_run()
         run.add_picture('wastd/static/android-chrome-192x192.png', width=Inches(0.4))
-    
+
         # Title with formatting
         title_para = doc.add_paragraph()
         title_run = title_para.add_run('W.A. Marine Turtles Conservation Database - Turtle Information Sheet')
@@ -1348,7 +1348,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
         title_run.font.color.rgb = RGBColor(31,73,125)
         title_run.font.bold = True
         title_para.space_after = Pt(12)
-        
+
         # Basic information
         doc.add_paragraph(f'Turtle ID: {turtle.pk}')
         doc.add_paragraph(f'Species: {turtle.species_code or ""}')
@@ -1365,12 +1365,12 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
             para.space_before = Pt(12)
             para.space_after = Pt(6)
             return para
-        
+
         # Tags information
         add_section_title('Tags Information:')
         flipper_tags = TrtTags.objects.filter(turtle=turtle)
         pit_tags = TrtPitTags.objects.filter(turtle=turtle)
-        
+
         if flipper_tags.exists() or pit_tags.exists():
             table = doc.add_table(rows=1, cols=4)
             table.style = 'Table Grid'
@@ -1379,14 +1379,14 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
             header_cells[1].text = 'Tag ID'
             header_cells[2].text = 'Status'
             header_cells[3].text = 'Comments'
-            
+
             for tag in flipper_tags:
                 row_cells = table.add_row().cells
                 row_cells[0].text = 'Flipper'
                 row_cells[1].text = str(tag.tag_id)
                 row_cells[2].text = str(tag.tag_status) if tag.tag_status else ''
                 row_cells[3].text = str(tag.comments or '')
-                
+
             for tag in pit_tags:
                 row_cells = table.add_row().cells
                 row_cells[0].text = 'PIT'
@@ -1395,7 +1395,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
                 row_cells[3].text = str(tag.comments or '')
         else:
             doc.add_paragraph('No tags recorded')
-        
+
         # Other identification history
         add_section_title('Other Identification History:')
         identifications = TrtIdentification.objects.filter(turtle_id=turtle.pk)
@@ -1406,7 +1406,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
             header_cells[0].text = 'Identification Type'
             header_cells[1].text = 'Identifier'
             header_cells[2].text = 'Comments'
-            
+
             for ident in identifications:
                 row_cells = table.add_row().cells
                 row_cells[0].text = str(ident.identification_type)
@@ -1414,7 +1414,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
                 row_cells[2].text = str(ident.comments or '')
         else:
             doc.add_paragraph('No identification history recorded')
-        
+
         # Observations
         add_section_title('Observations:')
         observations = turtle.trtobservations_set.all()
@@ -1425,7 +1425,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
             header_cells[0].text = 'Date'
             header_cells[1].text = 'Place'
             header_cells[2].text = 'Activity'
-            
+
             for obs in observations:
                 row_cells = table.add_row().cells
                 row_cells[0].text = obs.observation_date.strftime('%d/%m/%Y %H:%M:%S')
@@ -1433,14 +1433,14 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
                 row_cells[2].text = str(obs.activity_code if obs.activity_code else '')
         else:
             doc.add_paragraph('No observations recorded')
-            
+
         # All Measurements in one table
         add_section_title('Measurements:')
         all_measurements = []
         for obs in observations:
             measurements = obs.trtmeasurements_set.all()
             all_measurements.extend(measurements)
-            
+
         if all_measurements:
             table = doc.add_table(rows=1, cols=4)
             table.style = 'Table Grid'
@@ -1449,7 +1449,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
             header_cells[1].text = 'Measurement Type'
             header_cells[2].text = 'Value'
             header_cells[3].text = 'Comments'
-            
+
             for m in all_measurements:
                 row_cells = table.add_row().cells
                 row_cells[0].text = m.observation.observation_date.strftime('%d/%m/%Y %H:%M:%S')
@@ -1458,7 +1458,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
                 row_cells[3].text = str(m.comments or '')
         else:
             doc.add_paragraph('No measurements recorded')
-        
+
         # Samples
         add_section_title('Samples:')
         samples = turtle.trtsamples_set.all()
@@ -1470,7 +1470,7 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
             header_cells[1].text = 'Date'
             header_cells[2].text = 'Label'
             header_cells[3].text = 'Comments'
-            
+
             for sample in samples:
                 row_cells = table.add_row().cells
                 row_cells[0].text = str(sample.tissue_type)
@@ -1481,15 +1481,15 @@ class TurtleDetailView(LoginRequiredMixin, DetailView):
             doc.add_paragraph('No samples recorded')
         # Add footer
         doc.add_paragraph(f'WAMTRAM - {timezone.now().strftime("%d-%b-%Y")} copy. Department of Biodiversity, Conservation and Attractions')
-        
+
         # Prepare response
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         response['Content-Disposition'] = f'attachment; filename=turtle_{turtle.pk}_report.docx'
-        
+
         doc.save(response)
         return response
-    
-    
+
+
 SEX_CHOICES = [
     ("F", "Female"),
     ("M", "Male"),
@@ -1506,18 +1506,18 @@ class TemplateManageView(LoginRequiredMixin, FormView):
             or request.user.is_superuser
         ):
             return HttpResponseForbidden("You do not have permission to access this page.")
-        
+
         elif request.method == 'DELETE':
             return self.delete(request, *args, **kwargs)
         elif request.method == 'GET' and 'location_code' in request.GET:
             return self.get_places(request)
-        
+
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         form.save()
         messages.success(self.request, 'Template created successfully')
-        
+
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({
                 'message': 'Template created successfully',
@@ -1530,7 +1530,7 @@ class TemplateManageView(LoginRequiredMixin, FormView):
         for field, error_list in form.errors.items():
             for error in error_list:
                 errors.append(f'{field}: {error}')
-        
+
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({
                 'message': 'Form submission failed',
@@ -1560,9 +1560,9 @@ class TemplateManageView(LoginRequiredMixin, FormView):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
 
             return JsonResponse({'message': 'Template deleted successfully', 'status': 'success'})
-        
+
         return redirect('wamtram2:template_manage')
-    
+
     def get_places(self, request):
         location_code = request.GET.get('location_code')
         places = TrtPlaces.objects.filter(location_code=location_code)
@@ -1578,14 +1578,14 @@ def get_place_full_name(request):
         return JsonResponse({'full_name': full_name})
     except TrtPlaces.DoesNotExist:
         return JsonResponse({'error': 'Place not found'}, status=404)
-    
-    
+
+
 def check_template_name(request):
     name = request.GET.get('name')
     is_available = not Template.objects.filter(name=name).exists()
     return JsonResponse({'is_available': is_available})
-    
-    
+
+
 class ValidateTagView(View):
     """
     View for validating tags.
@@ -1615,7 +1615,7 @@ class ValidateTagView(View):
 
         if not tag or not side:
             return JsonResponse({'valid': False, 'wrong_side': False, 'message': 'Missing parameters'})
-        
+
         if turtle_id:
             try:
                 turtle_id = int(turtle_id)
@@ -1624,9 +1624,9 @@ class ValidateTagView(View):
                 if tag_obj:
                     if tag_obj.turtle_id != turtle_id:
                         return JsonResponse({
-                            'valid': False, 
-                            'wrong_side': False, 
-                            'message': 'Tag belongs to another turtle', 
+                            'valid': False,
+                            'wrong_side': False,
+                            'message': 'Tag belongs to another turtle',
                             'other_turtle_id': tag_obj.turtle_id,
                             'status': tag_obj.tag_status.description
                         })
@@ -1641,8 +1641,8 @@ class ValidateTagView(View):
                         is_valid = True
                         wrong_side = (tag_obj.side.lower() != side.lower())
                         return JsonResponse({
-                            'valid': is_valid, 
-                            'wrong_side': wrong_side, 
+                            'valid': is_valid,
+                            'wrong_side': wrong_side,
                             'other_turtle_id': None,
                             'status': tag_obj.tag_status.description
                         })
@@ -1656,7 +1656,7 @@ class ValidateTagView(View):
             Q(new_right_tag_id_2__tag_id=tag),
             observation_id__isnull=True,
         ).order_by('-entry_batch__entry_date').first()
-                
+
         if new_tag_entry:
             actual_side = None
             if new_tag_entry.new_left_tag_id and new_tag_entry.new_left_tag_id.tag_id == tag:
@@ -1667,12 +1667,12 @@ class ValidateTagView(View):
                 actual_side = 'R'
             elif new_tag_entry.new_right_tag_id_2 and new_tag_entry.new_right_tag_id_2.tag_id == tag:
                 actual_side = 'R'
-            
+
             if actual_side:
                 wrong_side = (actual_side.lower() != side.lower())
-            
+
             return JsonResponse({
-                'valid': True, 
+                'valid': True,
                 'wrong_side': wrong_side,
                 'message': 'Tag found in previous unprocessed entry',
                 'entry_date': new_tag_entry.entry_batch.entry_date.strftime('%Y-%m-%d')
@@ -1699,8 +1699,8 @@ class ValidateTagView(View):
             if tag_obj:
                 if tag_obj.turtle_id:
                     return JsonResponse({
-                        'valid': False, 
-                        'message': 'Tag belongs to another turtle', 
+                        'valid': False,
+                        'message': 'Tag belongs to another turtle',
                         'other_turtle_id': tag_obj.turtle_id,
                         'status': tag_obj.tag_status.description
                     })
@@ -1732,8 +1732,8 @@ class ValidateTagView(View):
             if pit_tag:
                 if pit_tag.turtle:
                     return JsonResponse({
-                        'valid': False, 
-                        'message': 'PIT tag belongs to another turtle', 
+                        'valid': False,
+                        'message': 'PIT tag belongs to another turtle',
                         'other_turtle_id': pit_tag.turtle.turtle_id,
                         'status': pit_tag.pit_tag_status.description
                     })
@@ -1764,10 +1764,10 @@ class ValidateTagView(View):
                 Q(new_pittag_id_4__pittag_id=tag),
                 observation_id__isnull=True,
             ).order_by('-entry_batch__entry_date').first()
-            
+
             if new_pit_tag_entry:
                 return JsonResponse({
-                    'valid': True, 
+                    'valid': True,
                     'message': 'PIT Tag found in previous unprocessed entry',
                     'entry_date': new_pit_tag_entry.entry_batch.entry_date.strftime('%Y-%m-%d')
                 })
@@ -1802,10 +1802,10 @@ class ValidateTagView(View):
                 Q(new_pittag_id_4__pittag_id=tag),
                 observation_id__isnull=True,
                 ).order_by('-entry_batch__entry_date').first()
-                
+
                 if new_pit_tag_entry:
                     return JsonResponse({
-                        'valid': True, 
+                        'valid': True,
                         'message': 'Tag found in previous unprocessed entry',
                         'entry_date': new_pit_tag_entry.entry_batch.entry_date.strftime('%Y-%m-%d')
                     })
@@ -1856,7 +1856,7 @@ def search_persons(request):
 
 def search_places(request):
     query = request.GET.get('q', '')
-    
+
     if '(' in query and ')' in query:
         place_name, location_code = query.split('(', 1)
         location_code = location_code.rstrip(')')
@@ -1868,10 +1868,10 @@ def search_places(request):
         places = TrtPlaces.objects.filter(
             Q(place_name__icontains=query) | Q(location_code__location_name__icontains=query)
         ).values('place_code', 'place_name', 'location_code__location_name')[:10]
-        
+
     for place in places:
         place['full_name'] = f"{place['place_name']} ({place['location_code__location_name']})"
-    
+
     return JsonResponse(list(places), safe=False)
 
 
@@ -1889,7 +1889,7 @@ class ExportDataView(LoginRequiredMixin, View):
         """
         if not date_from or not date_to:
             return None, None
-            
+
         start_date = timezone.make_aware(
             datetime.combine(
                 datetime.strptime(date_from, '%Y-%m-%d').date(),
@@ -1918,12 +1918,12 @@ class ExportDataView(LoginRequiredMixin, View):
 
     def get(self, request):
         context = {
-            'page_title': 'Export Data - ' + settings.SITE_TITLE, 
+            'page_title': 'Export Data - ' + settings.SITE_TITLE,
         }
         # If it's an export request (has format parameter)
         if request.GET.get("format"):
             return self.export_data(request)
-            
+
         # Handle different actions based on the 'action' parameter
         action = request.GET.get('action')
         if action:
@@ -1935,7 +1935,7 @@ class ExportDataView(LoginRequiredMixin, View):
                 return self.get_species(request)
             elif action == 'get_sexes':
                 return self.get_sexes(request)
-        
+
         # If no action or format, render the form
         return render(request, self.template_name, context)
 
@@ -1948,7 +1948,7 @@ class ExportDataView(LoginRequiredMixin, View):
         entry_type = request.GET.get("entry_type", "field")
 
         queryset = TrtDataEntry.objects.all()
-        
+
         # Filter based on entry_type
         if entry_type == "processed":
             queryset = queryset.exclude(observation_id__isnull=True)
@@ -1988,7 +1988,7 @@ class ExportDataView(LoginRequiredMixin, View):
         ]
 
         return JsonResponse({"locations": location_list})
-    
+
     def get_places(self, request):
         """Retrieve places based on the specified date range, location, and entry type."""
         from_date, to_date = self._get_date_range(
@@ -2023,11 +2023,11 @@ class ExportDataView(LoginRequiredMixin, View):
         places = TrtPlaces.objects.filter(
             place_code__in=queryset.values_list('place_code', flat=True)
         )
-        
+
         # Filter places by location if specified
         if location_code:
             places = places.filter(location_code=location_code)
-            
+
         places = places.select_related('location_code').distinct()
 
         place_list = [
@@ -2038,9 +2038,9 @@ class ExportDataView(LoginRequiredMixin, View):
             }
             for place in places
         ]
-        
+
         return JsonResponse({"places": place_list})
-    
+
     def get_species(self, request):
         """Retrieve species based on the specified date range."""
         from_date, to_date = self._get_date_range(
@@ -2120,17 +2120,17 @@ class ExportDataView(LoginRequiredMixin, View):
                 request.GET.get("observation_date_from"),
                 request.GET.get("observation_date_to")
             )
-            
+
             if not from_date or not to_date:
                 return HttpResponse("Please select both start and end dates", status=400)
-            
+
             location_code = request.GET.get("location_code")
             place_code = request.GET.get("place_code")
             species = request.GET.get("species")
             sex = request.GET.get("sex")
             file_format = request.GET.get("format", "csv")
             entry_type = request.GET.get("entry_type", "field")
-            
+
             # Build filename
             filename_parts = []
             if location_code:
@@ -2143,13 +2143,13 @@ class ExportDataView(LoginRequiredMixin, View):
                 filename_parts.append(sex)
             if entry_type == "processed":
                 filename_parts.append("processed")
-                
+
             date_range = f"({from_date.strftime('%Y%m%d')}-{to_date.strftime('%Y%m%d')})"
             filename = "_".join(filename_parts) + date_range if filename_parts else f"data_export{date_range}"
 
             # Build queryset
             queryset = TrtDataEntry.objects.all()
-            
+
             # Apply organization filter
             user = request.user
             if not user.is_superuser:
@@ -2161,23 +2161,23 @@ class ExportDataView(LoginRequiredMixin, View):
                     queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
                 else:
                     return HttpResponse("No data available for your organisation", status=403)
-            
+
             # Apply filters
             queryset = queryset.filter(observation_date__range=[from_date, to_date])
-            
+
             if entry_type == "processed":
                 queryset = queryset.exclude(observation_id__isnull=True)
-            
+
             if location_code:
                 queryset = queryset.filter(place_code__location_code=location_code)
             elif place_code:
                 queryset = queryset.filter(place_code=place_code)
-                
+
             if species:
                 queryset = queryset.filter(species_code=species)
             if sex:
                 queryset = queryset.filter(sex=sex)
-                
+
             # Optimize query with select_related
             queryset = queryset.select_related(
                 'entry_batch',
@@ -2199,14 +2199,14 @@ class ExportDataView(LoginRequiredMixin, View):
                     headers = [field.name for field in TrtDataEntry._meta.fields]
                     headers.append('organisations')
                     writer.writerow(headers)
-                
+
                     # Write data
                     for entry in queryset:
                         organisations = TrtEntryBatchOrganisation.objects.filter(
                             trtentrybatch=entry.entry_batch
                         ).values_list('organisation', flat=True)
                         org_str = ', '.join(organisations)
-                        
+
                         row = []
                         for field in TrtDataEntry._meta.fields:
                             value = getattr(entry, field.name)
@@ -2217,28 +2217,28 @@ class ExportDataView(LoginRequiredMixin, View):
                             row.append(str(value))
                         row.append(org_str)
                         writer.writerow(row)
-                        
+
                 else:  # xlsx format
                     response = HttpResponse(
                         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                     response["Content-Disposition"] = f'attachment; filename="{filename}.xlsx"'
-                    
+
                     wb = Workbook()
                     ws = wb.active
-                    
+
                     # Write headers
                     headers = [field.name for field in TrtDataEntry._meta.fields]
                     headers.append('organisations')
                     ws.append(headers)
-                    
+
                     # Write data
                     for entry in queryset:
                         organisations = TrtEntryBatchOrganisation.objects.filter(
                             trtentrybatch=entry.entry_batch
                         ).values_list('organisation', flat=True)
                         org_str = ', '.join(organisations)
-                        
+
                         row = []
                         for field in TrtDataEntry._meta.fields:
                             value = getattr(entry, field.name)
@@ -2251,20 +2251,20 @@ class ExportDataView(LoginRequiredMixin, View):
                             row.append(value)
                         row.append(org_str)
                         ws.append(row)
-                    
+
                     wb.save(response)
 
                 return response
 
             except Exception as e:
                 return HttpResponse(
-                    f"Error generating export file: {str(e)}", 
+                    f"Error generating export file: {str(e)}",
                     status=500
                 )
 
         except Exception as e:
             return HttpResponse(
-                f"Error during export: {str(e)}", 
+                f"Error during export: {str(e)}",
                 status=500
             )
 
@@ -2327,17 +2327,17 @@ class DudTagManageView(LoginRequiredMixin, View):
             if entry.dud_flipper_tag:
                 entry_data = self._process_entry(entry, entry.dud_flipper_tag, 'flipper', flipper_tags)
                 entries.append(entry_data)
-            
+
             # Process flipper tag 2
             if entry.dud_flipper_tag_2:
                 entry_data = self._process_entry(entry, entry.dud_flipper_tag_2, 'flipper_2', flipper_tags)
                 entries.append(entry_data)
-            
+
             # Process pit tag
             if entry.dud_pit_tag:
                 entry_data = self._process_entry(entry, entry.dud_pit_tag, 'pit', pit_tags)
                 entries.append(entry_data)
-            
+
             # Process pit tag 2
             if entry.dud_pit_tag_2:
                 entry_data = self._process_entry(entry, entry.dud_pit_tag_2, 'pit_2', pit_tags)
@@ -2347,7 +2347,7 @@ class DudTagManageView(LoginRequiredMixin, View):
             'page_title': 'DUD Tag Management - ' + settings.SITE_TITLE,
             'entries': entries,
         }
-        
+
         return render(request, self.template_name, context)
 
     def _process_entry(self, entry, tag_id, tag_type, tags_queryset):
@@ -2374,20 +2374,20 @@ class DudTagManageView(LoginRequiredMixin, View):
                 pass
 
         return entry_data
-    
+
     def post(self, request):
 
-        
+
         entry_id = request.POST.get('entry_id')
         tag_type = request.POST.get('tag_type')
         tag_id = request.POST.get('tag_id')
         tag_status = request.POST.get('tag_status')
-        
+
         if not all([entry_id, tag_type, tag_id]):
             return redirect('wamtram2:dud_tag_manage')
 
         entry = get_object_or_404(TrtDataEntry, pk=entry_id)
-        
+
         if tag_status:
             if tag_type.startswith('flipper'):
                 try:
@@ -2411,8 +2411,8 @@ class BatchesCurationView(LoginRequiredMixin, PaginateMixin, ListView):
     model = TrtEntryBatches
     template_name = 'wamtram2/batches_curation.html'
     context_object_name = 'batches'
-    paginate_by = 30  
-    
+    paginate_by = 30
+
     def dispatch(self, request, *args, **kwargs):
         if not (
             request.user.groups.filter(name="WAMTRAM2_TEAM_LEADER").exists()
@@ -2426,7 +2426,7 @@ class BatchesCurationView(LoginRequiredMixin, PaginateMixin, ListView):
         user_organisations = self.request.user.organisations.all()
         queryset = super().get_queryset().order_by('-entry_batch_id')
         user = self.request.user
-        
+
         if user.is_superuser:
             pass
         elif not user_organisations.exists():
@@ -2455,7 +2455,7 @@ class BatchesCurationView(LoginRequiredMixin, PaginateMixin, ListView):
                 filter=Q(trtdataentry__do_not_process=True)
             ),
         )
-        
+
         if user.is_superuser:
             queryset = queryset.annotate(
                 processed_count=Count(
@@ -2463,18 +2463,18 @@ class BatchesCurationView(LoginRequiredMixin, PaginateMixin, ListView):
                     filter=Q(trtdataentry__observation_id__isnull=False)
                 )
             )
-            
+
         location = self.request.GET.get('location')
         place = self.request.GET.get('place')
         year = self.request.GET.get('year')
         show_all = self.request.GET.get('show_all')
-        
+
         if not self.request.GET:
             return queryset[:30]
-        
+
         if show_all:
             return queryset
-        
+
         if not (location or year):
             return TrtEntryBatches.objects.none()
 
@@ -2494,8 +2494,8 @@ class BatchesCurationView(LoginRequiredMixin, PaginateMixin, ListView):
 
         result = queryset.filter(query).order_by('-entry_batch_id') if query else queryset.order_by('-entry_batch_id')
         return result
-    
-    
+
+
     def get_user_role(self, user):
         if user.is_superuser:
             return "Super User"
@@ -2506,12 +2506,12 @@ class BatchesCurationView(LoginRequiredMixin, PaginateMixin, ListView):
             return "Team Leader"
         elif "WAMTRAM2_VOLUNTEER" in user_groups:
             return "Volunteer"
-        
+
         return ""
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
+
         if self.request.user.is_superuser:
             for batch in context['batches']:
                 if batch.entry_count > 0:
@@ -2528,7 +2528,7 @@ class BatchesCurationView(LoginRequiredMixin, PaginateMixin, ListView):
             filter_params['year'] = self.request.GET.get('year')
         if self.request.GET.get('show_all'):
             filter_params['show_all'] = self.request.GET.get('show_all')
-            
+
         if context.get('page_obj'):
             page_obj = context['page_obj']
             if page_obj.has_previous():
@@ -2536,26 +2536,26 @@ class BatchesCurationView(LoginRequiredMixin, PaginateMixin, ListView):
                 for key, value in filter_params.items():
                     prev_url += f"&{key}={value}"
                 context['prev_url'] = prev_url
-                
+
             if page_obj.has_next():
                 next_url = f"?page={page_obj.next_page_number()}"
                 for key, value in filter_params.items():
                     next_url += f"&{key}={value}"
                 context['next_url'] = next_url
-                
+
         current_url = self.request.get_full_path()
         context['current_url'] = current_url
-        
+
         context['page_title'] = 'Manage Batches - ' + settings.SITE_TITLE
-        
+
         user = self.request.user
-        
+
         role = self.get_user_role(user)
         context['user_role'] = role
-        
+
         user_organisations = self.request.user.organisations.all()
         context['user_organisation_codes'] = [org.code for org in user_organisations]
-        
+
         context['locations'] = list(TrtLocations.get_ordered_locations())
         context['places'] = TrtPlaces.objects.all().order_by('place_name')
         current_year = timezone.now().year
@@ -2583,10 +2583,10 @@ class BatchesCurationView(LoginRequiredMixin, PaginateMixin, ListView):
             action = request.GET.get('action')
             if action == 'check_batch_code':
                 return self.check_batch_code(request)
-            
+
         self.object_list = self.get_queryset()
         context = self.get_context_data()
-        
+
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             html = render_to_string('wamtram2/batches_curation.html', context, request=request)
             return JsonResponse({
@@ -2597,7 +2597,7 @@ class BatchesCurationView(LoginRequiredMixin, PaginateMixin, ListView):
                 'show_all': context.get('show_all', False),
             })
         return super().get(request, *args, **kwargs)
-    
+
     def check_batch_code(self, request):
         code = request.GET.get('code')
         batch_id = request.GET.get('batch_id')
@@ -2606,19 +2606,19 @@ class BatchesCurationView(LoginRequiredMixin, PaginateMixin, ListView):
         else:
             is_unique = not TrtEntryBatches.objects.filter(batches_code=code).exists()
         return JsonResponse({'is_unique': is_unique})
-    
+
     def get_places(self, request):
         location_code = request.GET.get('location_code')
         places = TrtPlaces.objects.filter(location_code=location_code).values('place_code', 'place_name')
         return JsonResponse(list(places), safe=False)
-    
-    
+
+
 class CreateNewEntryView(LoginRequiredMixin, ListView):
     model = TrtEntryBatches
     template_name = 'wamtram2/create_new_entry.html'
     context_object_name = 'batches'
     paginate_by = 20
-    
+
     def dispatch(self, request, *args, **kwargs):
         # Permission check: only allow users in the specific groups or superusers
         if not (
@@ -2631,7 +2631,7 @@ class CreateNewEntryView(LoginRequiredMixin, ListView):
                 "You do not have permission to view this record"
             )
         return super().dispatch(request, *args, **kwargs)
-    
+
     def get_user_role(self, user):
         if user.is_superuser:
             return "Super User"
@@ -2642,7 +2642,7 @@ class CreateNewEntryView(LoginRequiredMixin, ListView):
             return "Team Leader"
         elif "WAMTRAM2_VOLUNTEER" in user_groups:
             return "Volunteer"
-        
+
         return ""
 
     def get_queryset(self):
@@ -2662,7 +2662,7 @@ class CreateNewEntryView(LoginRequiredMixin, ListView):
             ).values_list('trtentrybatch_id', flat=True)
 
             queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
-        
+
         if self.request.GET.get('show_all'):
             return queryset
 
@@ -2697,11 +2697,11 @@ class CreateNewEntryView(LoginRequiredMixin, ListView):
         Provide context data to the template, including locations, places, and years
         """
         context = super().get_context_data(**kwargs)
-        
+
         user = self.request.user
-        
+
         context['page_title'] = 'Create New Entry - ' + settings.SITE_TITLE
-        
+
         role = self.get_user_role(user)
         context['user_role'] = role
 
@@ -2732,7 +2732,7 @@ class CreateNewEntryView(LoginRequiredMixin, ListView):
     def get(self, request, *args, **kwargs):
         self.object_list = self.get_queryset()
         context = self.get_context_data()
-        
+
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             html = render_to_string('wamtram2/create_new_entry.html', context, request=request)
             return JsonResponse({
@@ -2742,7 +2742,7 @@ class CreateNewEntryView(LoginRequiredMixin, ListView):
                 'current_page': context['page_obj'].number if 'page_obj' in context else 1,
             })
         return super().get(request, *args, **kwargs)
-    
+
 
 @login_required
 @require_POST
@@ -2758,14 +2758,14 @@ def quick_add_batch(request):
             entered_person = TrtPersons.objects.get(pk=entered_person_id)
         except TrtPersons.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Invalid entered person ID.'})
-    
+
     template = None
     if template_id:
         try:
             template = Template.objects.get(pk=template_id)
         except Template.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Invalid template ID.'})
-    
+
     try:
         batch = TrtEntryBatches.objects.create(
             batches_code=batches_code,
@@ -2775,15 +2775,15 @@ def quick_add_batch(request):
             entered_person_id=entered_person,
             template=template
         )
-        
+
         user_organisations = request.user.organisations.all()
-        
+
         for org in user_organisations:
             TrtEntryBatchOrganisation.objects.create(
                 trtentrybatch=batch,
                 organisation=org.code
             )
-        
+
         return JsonResponse({'success': True})
     except ValidationError as e:
         return JsonResponse({'success': False, 'error': str(e)})
@@ -2793,7 +2793,7 @@ def quick_add_batch(request):
 
 class BatchCreateBatchesView(LoginRequiredMixin, View):
     template_name = 'wamtram2/batch_create_batches.html'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['page_title'] = 'Batch Create - ' + settings.SITE_TITLE
@@ -2814,14 +2814,14 @@ class BatchCreateBatchesView(LoginRequiredMixin, View):
             'locations': TrtLocations.get_ordered_locations(),
             'years': range(datetime.now().year - 5, datetime.now().year + 2),
             'places_json': json.dumps(
-                [{'place_code': p.place_code, 
+                [{'place_code': p.place_code,
                     'place_name': p.place_name,
-                    'full_name': p.get_full_name()} 
+                    'full_name': p.get_full_name()}
                 for p in TrtPlaces.objects.all()]
             ),
         }
         return render(request, self.template_name, context)
-    
+
     def post(self, request):
         try:
             data = json.loads(request.body)
@@ -2831,7 +2831,7 @@ class BatchCreateBatchesView(LoginRequiredMixin, View):
             night_start = int(data.get('night_start', 1))
             night_end = int(data.get('night_end', 1))
             start_date = data.get('start_date')
-            
+
             entered_person = None
             if data.get('entered_person_id'):
                 try:
@@ -2939,18 +2939,18 @@ def search_templates(request):
         data = [{'template_id': t.template_id, 'name': t.name} for t in templates]
         return JsonResponse(data, safe=False)
     return JsonResponse([], safe=False)
-    
-    
+
+
 class BatchCodeManageView(View):
     template_name = 'wamtram2/batch_detail_manage.html'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['page_title'] = 'Batch Detail Management - ' + settings.SITE_TITLE
         return context
 
     def dispatch(self, request, *args, **kwargs):
-        
+
         if not (
             request.user.groups.filter(name="WAMTRAM2_TEAM_LEADER").exists()
             or request.user.groups.filter(name="WAMTRAM2_STAFF").exists()
@@ -2959,7 +2959,7 @@ class BatchCodeManageView(View):
             return HttpResponseForbidden(
                 "You do not have permission to view this record"
             )
-            
+
         if request.method == 'GET' and 'action' in request.GET:
             action = request.GET.get('action')
             if action == 'get_places':
@@ -2967,7 +2967,7 @@ class BatchCodeManageView(View):
             elif action == 'check_batch_code':
                 return self.check_batch_code(request)
         return super().dispatch(request, *args, **kwargs)
-    
+
     def get_places(self, request):
         location_code = request.GET.get('location_code')
         places = TrtPlaces.objects.filter(location_code=location_code).values('place_code', 'place_name')
@@ -3050,7 +3050,7 @@ class BatchCodeManageView(View):
             is_unique = not TrtEntryBatches.objects.filter(batches_code=code).exists()
         return JsonResponse({'is_unique': is_unique})
 
-    
+
 @require_GET
 def get_places(request):
     location_code = request.GET.get('location_code')
@@ -3070,7 +3070,7 @@ class AddPersonView(LoginRequiredMixin, FormView):
         ):
             raise PermissionDenied("You do not have permission to access this page.")
         return super().dispatch(request, *args, **kwargs)
-    
+
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         field_order = [
@@ -3099,7 +3099,7 @@ class AddPersonView(LoginRequiredMixin, FormView):
         for field, error_list in form.errors.items():
             for error in error_list:
                 errors.append(f'{field}: {error}')
-        
+
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({
                 'message': 'Form submission failed',
@@ -3115,12 +3115,12 @@ class AddPersonView(LoginRequiredMixin, FormView):
         if 'file' in request.FILES:
             return self.handle_file_upload(request)
         return super().post(request, *args, **kwargs)
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['page_title'] = 'Add Person - ' + settings.SITE_TITLE
         return context
-    
+
     def handle_file_upload(self, request):
         file = request.FILES.get('file')
         if file:
@@ -3146,7 +3146,7 @@ class AddPersonView(LoginRequiredMixin, FormView):
                 TrtPersons.objects.bulk_create(new_entries)
                 added_count = len(new_entries)
                 skipped_count = len(skipped_emails)
-                
+
                 messages.success(request, f'{added_count} people added!')
 
                 if skipped_count > 0:
@@ -3161,7 +3161,7 @@ class AddPersonView(LoginRequiredMixin, FormView):
                     if skipped_count > 0:
                         response_data['skipped_emails'] = skipped_emails
                         response_data['warning'] = f'{skipped_count} email(s) already existed and were skipped.'
-                    
+
                     return JsonResponse(response_data)
 
             except Exception as e:
@@ -3193,13 +3193,13 @@ class AvailableBatchesView(LoginRequiredMixin, View):
             batches = TrtEntryBatches.objects.filter(
                 batch_organisations__organisation__in=[org.code for org in user_orgs]
             )
-            
+
         current_batch_id = request.GET.get('current_batch_id')
-        
+
         batches = batches.exclude(
             entry_batch_id=current_batch_id
         ).distinct()
-        
+
         return JsonResponse([{
             'id': batch.entry_batch_id,
             'code': batch.batches_code,
@@ -3227,36 +3227,36 @@ class MoveEntryView(LoginRequiredMixin, View):
     def post(self, request):
         entry_id = request.POST.get('entry_id')
         target_batch_id = request.POST.get('target_batch_id')
-        
+
         if not entry_id or not target_batch_id:
             return JsonResponse({'error': 'Missing required parameters'}, status=400)
-            
+
         try:
             user_org_codes = [org.code for org in request.user.organisations.all()]
-            
+
             entry = TrtDataEntry.objects.select_related('entry_batch').get(
                 data_entry_id=entry_id
             )
             current_batch = entry.entry_batch
-            
+
             if not current_batch.batch_organisations.filter(
                 organisation__in=user_org_codes
             ).exists():
                 raise PermissionDenied('No permission to operate on this entry')
-            
+
             target_batch = TrtEntryBatches.objects.get(
                 entry_batch_id=target_batch_id,
                 batch_organisations__organisation__in=user_org_codes
             )
-            
+
             entry.entry_batch = target_batch
             entry.save()
-            
+
             return JsonResponse({
                 'success': True,
                 'message': f'Successfully moved entry to batch {target_batch.batches_code}'
             })
-            
+
         except TrtDataEntry.DoesNotExist:
             return JsonResponse({'error': 'Entry not found'}, status=404)
         except TrtEntryBatches.DoesNotExist:
@@ -3272,15 +3272,15 @@ class PersonManageView(LoginRequiredMixin, UserPassesTestMixin, PaginateMixin, L
     template_name = 'wamtram2/manage_person.html'
     context_object_name = 'persons'
     paginate_by = 50
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['page_title'] = 'Manage Person - ' + settings.SITE_TITLE
         return context
-    
+
     def test_func(self):
         return self.request.user.is_superuser
-    
+
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
@@ -3289,11 +3289,11 @@ class PersonManageView(LoginRequiredMixin, UserPassesTestMixin, PaginateMixin, L
     def get_queryset(self):
         queryset = super().get_queryset()
         search_term = self.request.GET.get('search', '').strip()
-        
+
         if search_term:
             search_terms = search_term.split()
             query = Q()
-            
+
             if len(search_terms) == 1:
                 term = search_terms[0]
                 query = (
@@ -3307,10 +3307,10 @@ class PersonManageView(LoginRequiredMixin, UserPassesTestMixin, PaginateMixin, L
                     Q(first_name__icontains=search_term) |
                     Q(surname__icontains=search_term) |
                     Q(email__icontains=search_term) |
-                    
-                    Q(first_name__icontains=search_terms[0], 
+
+                    Q(first_name__icontains=search_terms[0],
                     surname__icontains=' '.join(search_terms[1:])) |
-                    
+
                     reduce(operator.or_, (
                         Q(first_name__icontains=term) |
                         Q(surname__icontains=term) |
@@ -3318,9 +3318,9 @@ class PersonManageView(LoginRequiredMixin, UserPassesTestMixin, PaginateMixin, L
                         for term in search_terms
                     ))
                 )
-            
+
             queryset = queryset.filter(query)
-    
+
         return queryset.prefetch_related(
             'measurer_person',
             'tagger_person',
@@ -3330,54 +3330,54 @@ class PersonManageView(LoginRequiredMixin, UserPassesTestMixin, PaginateMixin, L
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         action = request.POST.get('action')
-        
+
         if action == 'merge':
             return self.handle_merge()
         elif action == 'update':
             return self.handle_update()
-        
+
         return self.get(request, *args, **kwargs)
 
     def handle_merge(self):
         primary_id = self.request.POST.get('primary_person')
         secondary_id = self.request.POST.get('secondary_person')
-        
+
         try:
             primary = TrtPersons.objects.get(pk=primary_id)
             secondary = TrtPersons.objects.get(pk=secondary_id)
-            
+
             if primary == secondary:
                 messages.error(self.request, "Cannot merge a person with themselves")
                 return self.get(self.request)
-                
+
             models_to_update = [
-                ('TrtDataEntry', ['measured_by_id', 'recorded_by_id', 'tagged_by_id', 
+                ('TrtDataEntry', ['measured_by_id', 'recorded_by_id', 'tagged_by_id',
                                 'entered_by_id', 'measured_recorded_by_id']),
                 ('TrtObservations', ['reporter_person', 'entered_by_person','tagger_person',
                                 'measurer_reporter_person','measurer_person']),
             ]
-            
+
             for model_name, fields in models_to_update:
                 model = apps.get_model('wamtram2', model_name)
                 for field in fields:
                     model.objects.filter(**{field: secondary}).update(**{field: primary})
-            
+
             secondary_info = f"{secondary.first_name} {secondary.surname}"
             merge_note = f"Merged with {secondary_info} on {timezone.now().strftime('%Y-%m-%d')}"
-            
+
             if primary.comments:
                 primary.comments += f"\n{merge_note}"
             else:
                 primary.comments = merge_note
             primary.save()
-            
+
             secondary.delete()
-            messages.success(self.request, 
+            messages.success(self.request,
                         f"Successfully merged {secondary_info} into {primary.first_name} {primary.surname}")
-            
+
         except Exception as e:
             messages.error(self.request, f"Error during merge: {str(e)}")
-        
+
         return self.get(self.request)
 
     def handle_update(self):
@@ -3386,34 +3386,34 @@ class PersonManageView(LoginRequiredMixin, UserPassesTestMixin, PaginateMixin, L
             person = TrtPersons.objects.get(pk=person_id)
             old_name = f"{person.first_name} {person.surname}"
             old_email = person.email or ''
-            
+
             person.first_name = self.request.POST.get('first_name', person.first_name)
             person.surname = self.request.POST.get('surname', person.surname)
             person.email = self.request.POST.get('email', person.email)
-            
+
             new_name = f"{person.first_name} {person.surname}"
             new_email = person.email or ''
-            
+
             changes = []
             if old_name != new_name:
                 changes.append(f"Name changed from {old_name} to {new_name}")
-            
+
             if old_email != new_email:
                 changes.append(f"Email changed from {old_email} to {new_email}")
-            
+
             if changes:
                 change_note = f"{' and '.join(changes)} on {timezone.now().strftime('%Y-%m-%d')}"
                 if person.comments:
                     person.comments += f"\n{change_note}"
                 else:
                     person.comments = change_note
-                        
+
             person.save()
             messages.success(self.request, "Successfully updated person information")
-            
+
         except Exception as e:
             messages.error(self.request, f"Error updating person: {str(e)}")
-        
+
         return self.get(self.request)
 
 
@@ -3423,7 +3423,7 @@ class TagRegisterView(LoginRequiredMixin, FormView):
     success_url = reverse_lazy('wamtram2:tag_register')
 
     def dispatch(self, request, *args, **kwargs):
-        if not (request.user.is_superuser or 
+        if not (request.user.is_superuser or
                 request.user.groups.filter(name="WAMTRAM2_STAFF").exists()):
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
@@ -3434,31 +3434,31 @@ class TagRegisterView(LoginRequiredMixin, FormView):
             prefix = form.cleaned_data['tag_prefix']
             start = int(form.cleaned_data['start_number'])
             end = int(form.cleaned_data['end_number'])
-            
-            if end - start > 1000: 
+
+            if end - start > 1000:
                 return JsonResponse({
-                    'success': False, 
+                    'success': False,
                     'error': 'Cannot create more than 1000 tags at once'
                 })
 
-            with transaction.atomic():  
+            with transaction.atomic():
                 for num in range(start, end + 1):
-                    
+
                     if tag_type == 'flipper':
                         tag_id = f"{prefix}{str(num).zfill(len(str(start)))}"
                     else:  # pit tags
                         tag_id = str(num)
-                    
+
                     if tag_type == 'flipper':
-                        
+
                         if TrtTags.objects.filter(tag_id=tag_id).exists():
                             return JsonResponse({
                                 'success': False,
                                 'error': f'Tag {tag_id} already exists'
                             })
-                            
+
                         tag_status = TrtTagStatus.objects.get(tag_status='U')
-                        
+
                         TrtTags.objects.create(
                             tag_id=tag_id,
                             tag_order_id=form.cleaned_data['tag_order_id'],
@@ -3469,15 +3469,15 @@ class TagRegisterView(LoginRequiredMixin, FormView):
                             tag_status=tag_status
                         )
                     else:  # pit tags
-                        
+
                         if TrtPitTags.objects.filter(pittag_id=tag_id).exists():
                             return JsonResponse({
                                 'success': False,
                                 'error': f'PIT tag {tag_id} already exists'
                             })
-                            
+
                         pit_tag_status = TrtPitTagStatus.objects.get(pit_tag_status='U')
-                            
+
                         TrtPitTags.objects.create(
                             pittag_id=tag_id,
                             tag_order_id=form.cleaned_data['tag_order_id'],
@@ -3498,12 +3498,12 @@ class TagRegisterView(LoginRequiredMixin, FormView):
                 'success': False,
                 'error': str(e)
             })
-        
+
     def form_invalid(self, form):
         errors = []
         for field, error_list in form.errors.items():
             errors.append(f"{field}: {', '.join(error_list)}")
-        
+
         return JsonResponse({
             'success': False,
             'error': 'Invalid form data: ' + '; '.join(errors)
@@ -3512,10 +3512,10 @@ class TagRegisterView(LoginRequiredMixin, FormView):
 
 class AdminToolsView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     template_name = 'wamtram2/admin_tools.html'
-    
+
     def test_func(self):
         return (self.request.user.is_superuser)
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['page_title'] = 'Admin Tools - ' + settings.SITE_TITLE
@@ -3527,14 +3527,14 @@ class PitTagsListView(LoginRequiredMixin, UserPassesTestMixin, PaginateMixin, Li
     template_name = 'wamtram2/pit_tags_list.html'
     context_object_name = 'pit_tags'
     paginate_by = 30
-    
-    
+
+
     def test_func(self):
         return self.request.user.is_superuser
-    
+
     def get_queryset(self):
         queryset = super().get_queryset().select_related('turtle', 'custodian_person', 'pit_tag_status')
-        
+
         search = self.request.GET.get('search')
         if search:
             queryset = queryset.filter(
@@ -3543,13 +3543,13 @@ class PitTagsListView(LoginRequiredMixin, UserPassesTestMixin, PaginateMixin, Li
                 Q(custodian_person__first_name__icontains=search) |
                 Q(custodian_person__surname__icontains=search)
             )
-        
+
         status = self.request.GET.get('status')
         if status:
             queryset = queryset.filter(pit_tag_status=status)
-            
+
         return queryset
-        
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update({
@@ -3568,7 +3568,7 @@ class FlipperTagsListView(LoginRequiredMixin, UserPassesTestMixin, PaginateMixin
     template_name = 'wamtram2/flipper_tags_list.html'
     context_object_name = 'flipper_tags'
     paginate_by = 30
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update({
@@ -3580,17 +3580,17 @@ class FlipperTagsListView(LoginRequiredMixin, UserPassesTestMixin, PaginateMixin
             'page_title': 'Flipper Tags - ' + settings.SITE_TITLE
         })
         return context
-    
+
     def test_func(self):
         return self.request.user.is_superuser
-    
+
     def get_queryset(self):
         queryset = super().get_queryset().select_related(
-            'turtle', 
+            'turtle',
             'tag_status',
             'custodian_person'
         )
-        
+
         search = self.request.GET.get('search')
         if search:
             queryset = queryset.filter(
@@ -3599,13 +3599,13 @@ class FlipperTagsListView(LoginRequiredMixin, UserPassesTestMixin, PaginateMixin
                 Q(custodian_person__first_name__icontains=search) |
                 Q(custodian_person__surname__icontains=search)
             )
-        
+
         status = self.request.GET.get('status')
         if status:
             queryset = queryset.filter(tag_status_id=status)
-            
+
         return queryset
-        
+
 
 
 
@@ -3651,7 +3651,7 @@ class TransferObservationsByTagView(LoginRequiredMixin, View):
         """Get observations data for a specific tag"""
         if not TrtTags.objects.filter(tag_id=tag_id).exists():
             return []
-        
+
         observations = TrtObservations.objects.filter(
             trtrecordedtags__tag_id=tag_id
         ).select_related('turtle').values(
@@ -3684,19 +3684,19 @@ class TransferObservationsByTagView(LoginRequiredMixin, View):
                 'observations': observations
             })
 
-        # Handle transfer request  
+        # Handle transfer request
         try:
             tag_id = request.POST.get('tag_id')
             turtle_id = request.POST.get('turtle_id')
             observation_ids = request.POST.getlist('observation_ids[]')
-            
+
             # Basic validation
             if not all([tag_id, turtle_id]):
                 return JsonResponse({
                     'success': False,
                     'error': 'Missing required parameters'
                 }, status=400)
-                
+
             # Convert observation_ids list to comma-separated string
             observation_ids_str = ','.join(observation_ids)
 
@@ -3706,7 +3706,7 @@ class TransferObservationsByTagView(LoginRequiredMixin, View):
                     "EXEC dbo.TransferObservationsByFlipperTagWEB @TAG_ID = %s, @TURTLE_ID = %s, @OBSERVATION_IDS = %s;",
                     [tag_id, turtle_id, observation_ids_str]
                 )
-                
+
                 # Get the results
                 row = cursor.fetchone()
                 return_value = row[0]
@@ -3735,25 +3735,25 @@ class NestingSeasonListView(LoginRequiredMixin, UserPassesTestMixin, PaginateMix
     template_name = 'wamtram2/nesting_season_list.html'
     context_object_name = 'seasons'
     paginate_by = 30
-    
+
     def test_func(self):
         return self.request.user.is_superuser
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
-        
+
         search = self.request.GET.get('search')
         if search:
             queryset = queryset.filter(
                 Q(nesting_season__icontains=search)
             )
-            
+
         return queryset
-        
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update({
-            'admin_add_url': reverse('admin:wamtram2_trtnestingseason_add'), 
+            'admin_add_url': reverse('admin:wamtram2_trtnestingseason_add'),
             'admin_change_url': 'admin:wamtram2_trtnestingseason_change',
             'search_term': self.request.GET.get('search', ''),
             'page_title': 'Nesting Seasons - ' + settings.SITE_TITLE
@@ -3781,7 +3781,7 @@ class BatchCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
 
     def get_queryset(self):
         queryset = super().get_queryset().order_by('-entry_batch_id')
-    
+
         queryset = queryset.select_related(
             'entered_person_id',
             'template'
@@ -3791,12 +3791,12 @@ class BatchCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
             entry_count=Count('trtdataentry'),
             flagged_count=Count('trtdataentry', filter=Q(trtdataentry__do_not_process=True))
         )
-        
+
 
         location = self.request.GET.get('location')
         place = self.request.GET.get('place')
         year = self.request.GET.get('year')
-        
+
         if location or place or year:
             if location and place and year:
                 year_code = str(year)[-2:]
@@ -3815,7 +3815,7 @@ class BatchCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
             elif year:
                 year_code = str(year)[-2:]
                 queryset = queryset.filter(batches_code__endswith=year_code)
-        
+
         search = self.request.GET.get('search')
         if search:
             queryset = queryset.filter(
@@ -3825,10 +3825,10 @@ class BatchCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
                 Q(entered_person_id__surname__icontains=search)
             )
         return queryset
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
+
         # Get all possible columns
         all_columns = [
             {'field': 'entry_batch_id', 'title': 'Batch ID', 'visible': True},
@@ -3843,10 +3843,10 @@ class BatchCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
             {'field': 'pr_date_convention', 'title': 'PR Date Convention', 'visible': False},
             {'field': 'last_processed_at', 'title': 'Last Processed Time', 'visible': False},
         ]
-        
+
         # Get column display settings from user settings or session
         user_columns = self.request.session.get('batch_grid_columns', [col['field'] for col in all_columns if col['visible']])
-        
+
         # Add data needed for filters
         context.update({
             'all_columns': all_columns,
@@ -3881,17 +3881,17 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
         # Get batch_ids
         batch_id = self.kwargs.get('batch_id')
         batch_ids = self.request.GET.getlist('batch_ids', [])
-        
+
         if batch_id:
             # Single batch case
             batch_ids = [batch_id]
-        
+
         queryset = super().get_queryset()
-        
+
         if batch_ids:
             # Use __in to query multiple batches
             queryset = queryset.filter(entry_batch_id__in=batch_ids)
-            
+
         queryset = queryset.select_related(
             'observation_id',
             'species_code',
@@ -3952,7 +3952,7 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
             'new_right_tag_state',
             'new_right_tag_state_2'
         )
-        
+
         filter_value = self.request.GET.get("filter")
         if filter_value == "needs_review":
             queryset = queryset.filter(do_not_process=True)
@@ -3970,16 +3970,16 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
             )
         if not queryset.exists():
             return TrtDataEntry.objects.none()
-        
+
         return queryset.order_by("-data_entry_id")
-        
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
+
         # Get batch_id
         batch_id = self.kwargs.get('batch_id')
         batch_ids = self.request.GET.getlist('batch_ids', [])
-        
+
         if batch_id:
             # Single batch case
             batch_ids = [batch_id]
@@ -3992,7 +3992,7 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
             base_url = reverse('wamtram2:multi_entries_curation')
             query_params = '&'.join([f'batch_ids={bid}' for bid in batch_ids])
             context['clear_url'] = f"{base_url}?{query_params}"
-            
+
         if not batches.exists():
             # If no batches found, return empty context
             context.update({
@@ -4007,7 +4007,7 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
             return context
 
         batch_codes = [f"{batch.batches_code}" for batch in batches]
-        
+
         # Update page title
         if len(batch_ids) > 1:
             context['page_title'] = f'Entry Curation - Multiple Batches ({", ".join(batch_codes)})'
@@ -4017,22 +4017,22 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
             context['page_title'] = f'Entry Curation - Batch {batch_codes[0]}'
             context['batch_id'] = batch_ids[0]
             context['is_multi_batch'] = False
-            
+
         context['sex_choices'] = TrtDataEntry.SEX_CHOICES
         if not context.get('object_list'):
             context['object_list'] = []
-            
+
 
         model_fields = TrtDataEntry._meta.get_fields()
-    
+
         default_visible_fields = {
             'data_entry_id','observation_id', 'turtle_id', 'entered_by_id', 'species_code', 'place_code',
             'observation_date', 'do_not_process','error_message', 'comments'
         }
-            
+
         field_groups = {
             'Basic Information': [
-                'data_entry_id', 'observation_id', 'turtle_id', 'comments','error_message','species_code', 'sex', 'place_code', 
+                'data_entry_id', 'observation_id', 'turtle_id', 'comments','error_message','species_code', 'sex', 'place_code',
                 'observation_date', 'observation_time', 'do_not_process', 'latitude', 'longitude',
             ],
             'Measurements': [
@@ -4062,18 +4062,18 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
                 'new_right_tag_id', 'new_right_tag_state', 'new_right_tag_position',
                 'new_right_tag_id_2', 'new_right_tag_state_2', 'new_right_tag_position_2',
 
-                'other_left_tag', 
-                'other_right_tag', 
+                'other_left_tag',
+                'other_right_tag',
             ],
             'PIT Tags': [
                 'pit_tag_check',
-                'recapture_pittag_id', 
-                'recapture_pittag_id_2', 
-                'recapture_pittag_id_3', 
+                'recapture_pittag_id',
+                'recapture_pittag_id_2',
+                'recapture_pittag_id_3',
                 'recapture_pittag_id_4',
                 'new_pittag_id', 'new_pit_tag_sticker_present',
                 'new_pittag_id_2', 'new_pit_tag_2_sticker_present',
-                'new_pittag_id_3', 'new_pit_tag_3_sticker_present', 
+                'new_pittag_id_3', 'new_pit_tag_3_sticker_present',
                 'new_pittag_id_4','new_pit_tag_4_sticker_present',
             ],
             'Dud Tags': [
@@ -4116,18 +4116,18 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
                 'error_number'
             ]
         }
-    
+
         field_order = {}
         order_index = 0
         for group_fields in field_groups.values():
             for field in group_fields:
                 field_order[field] = order_index
                 order_index += 1
-    
+
         all_columns = []
         processed_fields = set()
-    
-    
+
+
         for group_name, field_patterns in field_groups.items():
             group_fields = []
             for field in model_fields:
@@ -4141,12 +4141,12 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
                             'group': group_name
                         })
                         processed_fields.add(field_name)
-                
-            
+
+
             sorted_fields = sorted(group_fields, key=lambda x: field_order.get(x['field'], float('inf')))
             all_columns.extend(sorted_fields)
-    
-    
+
+
         other_fields = []
         for field in model_fields:
             if hasattr(field, 'name') and field.name not in processed_fields:
@@ -4156,21 +4156,21 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
                     'visible': field.name in default_visible_fields,
                     'group': 'Other'
                 })
-            
-    
+
+
         all_columns.extend(sorted(other_fields, key=lambda x: x['field']))
-    
-    
+
+
         user_columns = self.request.session.get('entry_grid_columns',
                                             [col['field'] for col in all_columns if col['visible']])
-            
+
         batch_id = self.kwargs.get('batch_id')
-        
+
         context.update({
             'all_columns': all_columns,
             'visible_columns': user_columns,
             'search_term': self.request.GET.get('search', ''),
-            'batch_ids': batch_ids, 
+            'batch_ids': batch_ids,
             'species_choices': TrtSpecies.objects.all(),
             'places_choices': TrtPlaces.objects.select_related('location_code').all(),
             'activities_choices': TrtActivities.objects.all(),
@@ -4186,9 +4186,9 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
             'tags_choices': TrtTags.objects.all(),
             'pit_tags_choices': TrtPitTags.objects.all(),
         })
-            
+
         return context
-    
+
     def post(self, request, *args, **kwargs):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             visible_columns = request.POST.getlist('columns[]')
@@ -4199,13 +4199,13 @@ class EntryCurationView(LoginRequiredMixin, SuperUserRequiredMixin, PaginateMixi
 
 class SaveEntryChangesView(LoginRequiredMixin, SuperUserRequiredMixin, View):
     READONLY_FIELDS = {'data_entry_id', 'observation_id'}
-    
+
     def validate_field(self, field_name, value, entry):
         if field_name in self.READONLY_FIELDS:
             raise ValueError(f"Field {field_name} is readonly")
-            
+
         field = TrtDataEntry._meta.get_field(field_name)
-        
+
         if field.is_relation:
             if value == '':
                 return None
@@ -4216,14 +4216,14 @@ class SaveEntryChangesView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 instance = related_model.objects.get(**lookup)
 
                 if field_name.endswith('_by_id'):
-                    base_field = field_name[:-3]  
+                    base_field = field_name[:-3]
                     if hasattr(entry, base_field):
                         setattr(entry, base_field, f"{instance.first_name} {instance.surname}")
                 return instance
             except related_model.DoesNotExist:
                 raise ValueError(f"Invalid value for {field_name}: {value}")
-        
- 
+
+
         if field.get_internal_type() in ['IntegerField', 'FloatField']:
             try:
                 value = float(value)
@@ -4232,30 +4232,30 @@ class SaveEntryChangesView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 return value
             except ValueError:
                 raise ValueError(f"Invalid number for {field_name}: {value}")
-        
+
         if field.get_internal_type() == 'CharField':
             if not isinstance(value, str):
                 raise ValueError(f"Invalid string for {field_name}: {value}")
             return value
-        
+
         return value
 
     def post(self, request):
         try:
             changes = json.loads(request.POST.get('changes', '{}'))
-            
+
             with transaction.atomic():
                 for entry_id, fields in changes.items():
                     entry = TrtDataEntry.objects.get(data_entry_id=entry_id)
-                    
+
                     for field, value in fields.items():
                         validated_value = self.validate_field(field, value, entry)
                         setattr(entry, field, validated_value)
-                    
+
                     entry.save()
-                    
+
             return JsonResponse({'success': True})
-            
+
         except Exception as e:
             return JsonResponse({
                 'success': False,
@@ -4265,13 +4265,13 @@ class SaveEntryChangesView(LoginRequiredMixin, SuperUserRequiredMixin, View):
 
 class ObservationManagementView(LoginRequiredMixin, SuperUserRequiredMixin, TemplateView):
     template_name = 'wamtram2/observation_management.html'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         observation_id = self.kwargs.get('observation_id')
         context['page_title'] = 'Observation Management - ' + settings.SITE_TITLE
         context['initial_data'] = 'null'
-        
+
         if observation_id:
             try:
                 observation_data_view = ObservationDataView()
@@ -4343,7 +4343,7 @@ class ObservationManagementView(LoginRequiredMixin, SuperUserRequiredMixin, Temp
                 'search_places_url': reverse('wamtram2:search-places'),
             })
         except Exception as e:
-            
+
             for key in ['tag_states_choices', 'pit_tag_state_choices', 'measurement_type_choices',
                 'body_parts_choices', 'damage_codes_choices', 'damage_cause_choices']:
                 context[key] = json.dumps(context[key])
@@ -4352,46 +4352,46 @@ class ObservationManagementView(LoginRequiredMixin, SuperUserRequiredMixin, Temp
 
 class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
     @transaction.atomic
-    def post(self, request, observation_id=None): 
+    def post(self, request, observation_id=None):
         try:
             data = json.loads(request.body)
-            
+
             observation_id = observation_id or data.get('observation_id')
             if observation_id:
                 observation = TrtObservations.objects.get(pk=observation_id)
             else:
                 observation = TrtObservations()
-            
+
             # Update basic info
             basic_info = data.get('basic_info', {})
             for field, value in basic_info.items():
                 if hasattr(observation, field):
                     setattr(observation, field, value)
-            
+
             if 'observation_date' in basic_info:
                 try:
                     datetime_obj = datetime.strptime(
-                        basic_info['observation_date'], 
+                        basic_info['observation_date'],
                         '%Y-%m-%dT%H:%M'
                     )
                     observation.observation_date = datetime_obj
                     observation.observation_time = datetime_obj
                 except ValueError as e:
                     raise ValidationError(f"Invalid date format: {str(e)}")
-            
+
             observation.save()
-            
+
             # Update related records
             self._update_tags(observation, data.get('tag_info', {}))
             self._update_measurements(observation, data.get('measurements', []))
             self._update_damage_records(observation, data.get('damage_records', []))
-            self._update_identifications(observation, data.get('recorded_identifications', [])) 
+            self._update_identifications(observation, data.get('recorded_identifications', []))
             self._update_location(observation, data.get('location', {}))
-            
+
             return JsonResponse({'status': 'success', 'observation_id': observation.observation_id})
-            
+
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, 
+            return JsonResponse({'status': 'error', 'message': str(e)},
                             status=400 if isinstance(e, ValidationError) else 500)
 
     def get(self, request, observation_id=None):
@@ -4401,7 +4401,7 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 try:
                     data = self._get_observation_data(observation)
                     return JsonResponse({
-                        'status': 'success', 
+                        'status': 'success',
                         'data': data
                     })
                 except Exception as e:
@@ -4415,7 +4415,7 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 return JsonResponse({'status': 'success', 'data': data})
         except TrtObservations.DoesNotExist:
             return JsonResponse({
-                'status': 'error', 
+                'status': 'error',
                 'message': f'Observation {observation_id} not found'
             }, status=404)
         except Exception as e:
@@ -4423,7 +4423,7 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 'status': 'error',
                 'message': f'Error processing request: {str(e)}'
             }, status=500)
-    
+
     def _get_observation_data(self, observation):
         """Get full observation data"""
         scars_data = {
@@ -4443,13 +4443,13 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
             'damage_cause_code': damage.damage_cause_code.damage_cause_code if damage.damage_cause_code else None,
             'comments': damage.comments
         } for damage in TrtDamage.objects.filter(observation=observation)]
-        
+
         other_tags_data = {
             'other_tags': observation.other_tags,
             'identification_type': observation.other_tags_identification_type.identification_type if observation.other_tags_identification_type else None,
             'identification_type_description': observation.other_tags_identification_type.description if observation.other_tags_identification_type else None
         }
-        
+
         recorded_identifications = []
         records = TrtRecordedIdentification.objects.filter(observation_id=observation.observation_id)
         for record in records:
@@ -4462,7 +4462,7 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 })
             except Exception as e:
                 continue
-                
+
         persons_data = {
             'measurer_person': {
                 'id': str(observation.measurer_person.person_id) if observation.measurer_person else None,
@@ -4487,10 +4487,10 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 'id': observation.place_code.place_code if observation.place_code else None,
                 'text': observation.place_code.get_full_name() if observation.place_code else None
             }
-    
+
         tag_info = {
             'recorded_tags': [{
-                'tag_id': str(tag.tag_id.tag_id) if tag.tag_id else str(tag.other_tag_id), 
+                'tag_id': str(tag.tag_id.tag_id) if tag.tag_id else str(tag.other_tag_id),
                 'tag_side': tag.side,
                 'tag_position': tag.tag_position,
                 'tag_state': tag.tag_state.tag_state if tag.tag_state else None,
@@ -4504,14 +4504,14 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 'comments': tag.comments
             } for tag in observation.trtrecordedpittags_set.all()]
         }
-    
+
         measurements = [{
             'id': measurement.id,
             'measurement_type': str(measurement.measurement_type.measurement_type) if measurement.measurement_type else None,
             'measurement_value': str(measurement.measurement_value),
             'comments': measurement.comments
         } for measurement in observation.trtmeasurements_set.all()]
-        
+
         identification_types = [{
             'identification_type': type_obj.identification_type,
             'description': type_obj.description
@@ -4531,7 +4531,7 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
         return {
             'basic_info': {
                 'observation_id': str(observation.observation_id),
-                'turtle_id': str(observation.turtle.turtle_id), 
+                'turtle_id': str(observation.turtle.turtle_id),
                 'observation_date': observation.observation_date.strftime('%Y-%m-%dT%H:%M') if observation.observation_date else '',
                 'alive': observation.alive.code if observation.alive else '',
                 'nesting': observation.nesting.code if observation.nesting else '',
@@ -4563,7 +4563,7 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
             'body_parts': body_parts,
             'damage_codes': damage_codes
         }
-        
+
     def _filter_observations(self, request):
         """Filter observations based on request parameters"""
         observations = TrtObservations.objects.all()
@@ -4573,15 +4573,15 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
             q_objects = Q()
             for part in tag_parts:
                 q_objects |= (
-                    Q(trtrecordedtags__tag_id__tag_id__exact=part) | 
-                    Q(trtrecordedpittags__pittag_id__pittag_id__exact=part) 
+                    Q(trtrecordedtags__tag_id__tag_id__exact=part) |
+                    Q(trtrecordedpittags__pittag_id__pittag_id__exact=part)
                 )
             observations = observations.filter(q_objects)
-        
+
         place_code = request.GET.get('place')
         if place_code:
             observations = observations.filter(place_code=place_code)
-        
+
         date = request.GET.get('date')
         if date:
             try:
@@ -4589,7 +4589,7 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 observations = observations.filter(observation_date__date=date_obj)
             except ValueError:
                 pass
-        
+
         status = request.GET.get('status')
         if status:
             if status == 'Initial Nesting':
@@ -4598,17 +4598,17 @@ class ObservationDataView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 observations = observations.filter(nesting='Y', status='S')
             elif status == 'Non-nesting':
                 observations = observations.filter(nesting='N')
-                
+
         observations = observations.select_related('place_code').prefetch_related(
-            'trtrecordedtags_set', 
+            'trtrecordedtags_set',
             'trtrecordedpittags_set'
             ).distinct().order_by('-observation_date', '-observation_time')
-        
+
         return observations.order_by('-observation_date')
-    
+
     def _get_observation_summary(self, observation):
         """Get summary data for observation list"""
-        tags = list(observation.trtrecordedtags_set.values_list('tag_id', flat=True)) 
+        tags = list(observation.trtrecordedtags_set.values_list('tag_id', flat=True))
         pit_tags = list(observation.trtrecordedpittags_set.values_list('pittag_id', flat=True))
         place = observation.place_code
         place_description = place.get_full_name() if place else ''
@@ -4666,7 +4666,7 @@ class SaveObservationView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                     }, status=404)
             else:
                 observation = TrtObservations()
-            
+
             # Process turtle field
             turtle_id = basic_info.get('turtle_id')
             if not turtle_id:
@@ -4674,7 +4674,7 @@ class SaveObservationView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                     'status': 'error',
                     'message': 'Turtle ID is required'
                 }, status=400)
-                
+
             try:
                 turtle = TrtTurtles.objects.get(turtle_id=turtle_id)
                 observation.turtle = turtle
@@ -4683,26 +4683,26 @@ class SaveObservationView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                     'status': 'error',
                     'message': f'Turtle with ID {turtle_id} not found'
                 }, status=400)
-            
+
             # Remove turtle_id, as we've already handled it separately
             if 'turtle_id' in basic_info:
                 del basic_info['turtle_id']
-            
+
             # Update basic information
             self._update_basic_info(observation, basic_info)
-            
+
             # Ensure required fields are set
             if not observation.observation_date:
                 return JsonResponse({
                     'status': 'error',
                     'message': 'Observation date is required'
                 }, status=400)
-            
+
             observation.save()
-            
+
             # Update status
             self._update_status(observation)
-            
+
             return JsonResponse({
                 'status': 'success',
                 'observation_id': observation.observation_id
@@ -4715,27 +4715,27 @@ class SaveObservationView(LoginRequiredMixin, SuperUserRequiredMixin, View):
 
     def _update_basic_info(self, observation, basic_info):
         try:
-            
+
             for field, value in basic_info.items():
-                
+
                 if field in self.FOREIGN_KEY_FIELDS:
                     if value is not None:
                         try:
                             model_class = self.FOREIGN_KEY_FIELDS[field]
-                            
+
                             if model_class == TrtYesNo:
                                 value = str(value).upper()
-                                
+
                                 if value not in ['Y', 'N', 'U', 'D', 'P']:
                                     setattr(observation, field, None)
                                     continue
-                                    
+
                                 instance = model_class.objects.get(code=value)
                             else:
                                 instance = model_class.objects.get(pk=value)
-                                
+
                             setattr(observation, field, instance)
-                            
+
                         except model_class.DoesNotExist:
                             setattr(observation, field, None)
                         except Exception as e:
@@ -4744,7 +4744,7 @@ class SaveObservationView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                         setattr(observation, field, None)
                 else:
                     setattr(observation, field, value)
-                    
+
         except Exception as e:
             raise ValidationError(f"Error updating basic info: {str(e)}")
 
@@ -4756,11 +4756,11 @@ class SaveObservationView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                     turtle_id=observation.turtle_id,
                     observation_date__lt=observation.observation_date
                 ).exists()
-                
+
                 observation.observation_status = 'S' if previous_observations else 'I'
             else:
                 observation.observation_status = 'N'
-                
+
             observation.save()
         except Exception as e:
             raise ValidationError(f"Error updating observation status: {str(e)}")
@@ -4801,7 +4801,7 @@ class RecordedTagsUpdateView(LoginRequiredMixin, SuperUserRequiredMixin, View):
 
                 # Get turtle_id safely
                 turtle_id = observation.turtle_id if observation.turtle_id else None
-                
+
                 barnacles = tag_data.get('barnacles')
 
                 # Update or create TrtRecordedTags record
@@ -4851,7 +4851,7 @@ class RecordedPitTagsUpdateView(LoginRequiredMixin, SuperUserRequiredMixin, View
             deleted_tags = data.get('deleted_tags', [])
 
             observation = TrtObservations.objects.get(observation_id=observation_id)
-            turtle = observation.turtle 
+            turtle = observation.turtle
 
             # Handle deleted tags
             if deleted_tags:
@@ -4883,7 +4883,7 @@ class RecordedPitTagsUpdateView(LoginRequiredMixin, SuperUserRequiredMixin, View
                     defaults={
                         'pit_tag_position': tag_data.get('pit_tag_position'),
                         'pit_tag_state': tag_state,
-                        'turtle_id': turtle, 
+                        'turtle_id': turtle,
                         'checked': bool(tag_data.get('checked', False)),
                         'comments': tag_data.get('comments', '')
                     }
@@ -5030,7 +5030,7 @@ class RecordedDamageUpdateView(LoginRequiredMixin, SuperUserRequiredMixin, View)
             observation_id = data.get('observation_id')
             recorded_damage = data.get('recorded_damage', [])
             deleted_damage = data.get('deleted_damage', [])
-            
+
             observation = TrtObservations.objects.get(observation_id=observation_id)
 
             # Handle deleted damage records
@@ -5043,7 +5043,7 @@ class RecordedDamageUpdateView(LoginRequiredMixin, SuperUserRequiredMixin, View)
             # Handle updated and new damage records
             for damage_data in recorded_damage:
                 body_part = damage_data.get('body_part')
-                
+
                 damage_fields = {
                     'body_part_id': body_part,
                     'damage_code_id': damage_data.get('damage_code'),
@@ -5117,16 +5117,16 @@ class RecordedScarsUpdateView(LoginRequiredMixin, SuperUserRequiredMixin, View):
 
 class TurtleManagementView(LoginRequiredMixin,SuperUserRequiredMixin, TemplateView):
     template_name = 'wamtram2/turtle_management.html'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        turtle_id = self.request.GET.get('turtle_id', '')  
+        turtle_id = self.request.GET.get('turtle_id', '')
         title_parts = []
         if turtle_id:
             title_parts.append(f'Turtle {turtle_id}')
         title_parts.append('Turtle Management')
         title_parts.append(settings.SITE_TITLE)
-        
+
         context['page_title'] = ' - '.join(title_parts)
         context['sex_choices'] = SEX_CHOICES
         context['cause_of_death_choices'] = TrtCauseOfDeath.objects.all()
@@ -5141,24 +5141,24 @@ class TurtleManagementView(LoginRequiredMixin,SuperUserRequiredMixin, TemplateVi
             {'pit_tag_status': status.pit_tag_status, 'description': status.description}
             for status in TrtPitTagStatus.objects.all()
         ]
-        
+
         context['identification_types'] = [
             {'identification_type': type.identification_type, 'description': type.description}
             for type in TrtIdentificationTypes.objects.all()
         ]
-        
+
         context['tissue_types'] = [
             {'tissue_type': type.tissue_type, 'description': type.description}
             for type in TrtTissueTypes.objects.all()
         ]
-        
+
         context['document_types'] = [
             {'document_type': type.document_type, 'description': type.description}
             for type in TrtDocumentTypes.objects.all()
         ]
-        
-        
-        
+
+
+
         return context
 
     def get(self, request, *args, **kwargs):
@@ -5169,32 +5169,32 @@ class TurtleManagementView(LoginRequiredMixin,SuperUserRequiredMixin, TemplateVi
     def post(self, request, *args, **kwargs):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             try:
-                data = json.loads(request.body)
-                
+                data = json.loads(request.body).get('basic')
+
                 turtle = TrtTurtles.objects.get(turtle_id=data['turtle_id'])
-                
+
                 if data.get('species'):
                     species = TrtSpecies.objects.get(species_code=data['species'])
                     turtle.species_code = species
-                
+
                 if data.get('location'):
                     location = TrtLocations.objects.get(location_code=data['location'])
                     turtle.location = location
-                    
+
                 if data.get('turtle_status'):
                     status = TrtTurtleStatus.objects.get(turtle_status=data['turtle_status'])
                     turtle.turtle_status = status
-                    
+
                 if data.get('cause_of_death'):
                     cod = TrtCauseOfDeath.objects.get(cause_of_death=data['cause_of_death'])
                     turtle.cause_of_death = cod
-                    
+
                 turtle.turtle_name = data.get('turtle_name', '')
                 turtle.sex = data.get('sex', '')
                 turtle.comments = data.get('comments', '')
-                
+
                 turtle.save()
-                
+
                 return JsonResponse({
                     'status': 'success',
                     'message': 'Turtle information updated successfully'
@@ -5259,8 +5259,8 @@ class TurtleManagementView(LoginRequiredMixin,SuperUserRequiredMixin, TemplateVi
                 'comments': tag.comments,
                 'field_person_id': tag.field_person_id
             } for tag in tags]
-        
-            
+
+
             pit_tags = TrtPitTags.objects.filter(turtle=turtle.turtle_id)
             pit_tag_data = [{
                 'pit_tag_id': tag.pittag_id,
@@ -5275,14 +5275,14 @@ class TurtleManagementView(LoginRequiredMixin,SuperUserRequiredMixin, TemplateVi
                 'batch_number': tag.batch_number,
                 'box_number': tag.box_number
             } for tag in pit_tags]
-        
+
             identifications = TrtIdentification.objects.filter(turtle=turtle.turtle_id)
             identification_data = [{
                 'identification_type': ident.identification_type.identification_type,
                 'identifier': ident.identifier,
                 'comments': ident.comments
             } for ident in identifications]
-            
+
             observations = turtle.trtobservations_set.all()
             observation_data = [{
                 'observation_id': obs.pk,
@@ -5293,7 +5293,7 @@ class TurtleManagementView(LoginRequiredMixin,SuperUserRequiredMixin, TemplateVi
                 'nesting': str(obs.nesting),
                 'activity': str(obs.activity_code)
             } for obs in observations]
-            
+
             samples = turtle.trtsamples_set.all()
             sample_data = [{
                 'tissue_type': sample.tissue_type.tissue_type,
@@ -5302,17 +5302,17 @@ class TurtleManagementView(LoginRequiredMixin,SuperUserRequiredMixin, TemplateVi
                 'label': sample.sample_label,
                 'comments': sample.comments
             } for sample in samples]
-            
+
             documents = TrtDocuments.objects.filter(turtle_id=turtle.turtle_id)
             document_data = [{
                 'document_id': doc.pk,
                 'document_type': str(doc.document_type),
                 'file_name': doc.filename,
                 'person_id': doc.person_id.person_id if doc.person_id else '',
-                'person_name': str(doc.person_id) if doc.person_id else '', 
+                'person_name': str(doc.person_id) if doc.person_id else '',
                 'comments': doc.comments
             } for doc in documents]
-                
+
             turtle_data.append({
                 'turtle_id': turtle.turtle_id,
                 'species': turtle.species_code.species_code,
@@ -5330,7 +5330,7 @@ class TurtleManagementView(LoginRequiredMixin,SuperUserRequiredMixin, TemplateVi
                 'samples': sample_data,
                 'documents': document_data
             })
-            
+
 
         return JsonResponse({
             'status': 'success',
@@ -5355,27 +5355,27 @@ class FlipperTagsUpdateView(LoginRequiredMixin,SuperUserRequiredMixin,View):
                     turtle=turtle
                 ).update(
                     turtle=None,
-                    tag_status=TrtTagStatus.objects.get(tag_status='SAL') 
+                    tag_status=TrtTagStatus.objects.get(tag_status='SAL')
                 )
 
             # Handle updates and additions
             for tag_data in flipper_tags:
                 tag_id = tag_data.get('tag_id')
                 tag_status_code = tag_data.get('tag_status')
-                
+
                 tag_status = None
                 if tag_status_code:
                     try:
                         tag_status = TrtTagStatus.objects.get(tag_status=tag_status_code)
                     except TrtTagStatus.DoesNotExist:
                         raise ValidationError(f"Invalid tag status code: {tag_status_code}")
-                
+
                 tag, created = TrtTags.objects.get_or_create(
                     tag_id=tag_id,
                     defaults={
                         'turtle': turtle,
                         'side': tag_data.get('side'),
-                        'tag_status': tag_status, 
+                        'tag_status': tag_status,
                         'issue_location': tag_data.get('issue_location'),
                         'comments': tag_data.get('comments')
                     }
@@ -5435,12 +5435,12 @@ class PitTagsUpdateView(LoginRequiredMixin,SuperUserRequiredMixin,View):
             for tag_data in pit_tags:
                 tag_id = tag_data.get('pit_tag_id')
                 tag_status_code = tag_data.get('pit_tag_status')
-                
+
                 try:
                     tag_status = TrtTagStatus.objects.get(tag_status=tag_status_code) if tag_status_code else None
                 except TrtTagStatus.DoesNotExist:
                     raise ValidationError(f"Invalid tag status code: {tag_status_code}")
-                
+
                 tag, created = TrtPitTags.objects.get_or_create(
                     pit_tag_id=tag_id,
                     defaults={
@@ -5498,12 +5498,12 @@ class IdentificationsUpdateView(LoginRequiredMixin,SuperUserRequiredMixin,View):
             for ident_data in identifications:
                 ident_type = ident_data.get('identification_type')
                 identifier = ident_data.get('identification_value')
-                
+
                 try:
                     ident_type_obj = TrtIdentificationTypes.objects.get(identification_type=ident_type) if ident_type else None
                 except TrtIdentificationTypes.DoesNotExist:
                     raise ValidationError(f"Invalid identification type: {ident_type}")
-                
+
                 # 由于使用 OneToOneField，我们需要使用 update_or_create
                 TrtIdentification.objects.update_or_create(
                     turtle=turtle,
@@ -5570,7 +5570,7 @@ class SamplesUpdateView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                     )
 
             return JsonResponse({'status': 'success'})
-            
+
         except Exception as e:
             return JsonResponse({
                 'status': 'error',
@@ -5612,7 +5612,7 @@ class DocumentsUpdateView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                     )
 
             return JsonResponse({'status': 'success'})
-            
+
         except Exception as e:
             return JsonResponse({
                 'status': 'error',
@@ -5622,7 +5622,7 @@ class DocumentsUpdateView(LoginRequiredMixin, SuperUserRequiredMixin, View):
 
 class NestingSeasonStatsView(LoginRequiredMixin, SuperUserRequiredMixin, View):
     template_name = 'wamtram2/nesting_season_stats.html'
-    
+
     def get_context_data(self, **kwargs):
         """Prepare all data for template context"""
         context = {
@@ -5634,7 +5634,7 @@ class NestingSeasonStatsView(LoginRequiredMixin, SuperUserRequiredMixin, View):
         }
         selected_locations = self.request.GET.getlist('location')
         selected_places = self.request.GET.getlist('place')
-        
+
         # Add selected filters to context
         context.update({
             'data_type': self.request.GET.get('data_type', 'processed'),
@@ -5645,26 +5645,26 @@ class NestingSeasonStatsView(LoginRequiredMixin, SuperUserRequiredMixin, View):
             'start_date': self.request.GET.get('start_date'),
             'end_date': self.request.GET.get('end_date'),
         })
-        
+
         # Add query results if dates are selected
         if context['start_date'] and context['end_date']:
             context['results'] = self.get_query_results(context)
-            
+
         return context
-    
+
     def get_query_results(self, context):
         """Execute query based on selected filters"""
         try:
             start_date = datetime.strptime(context['start_date'], '%Y-%m-%d').date()
             end_date = datetime.strptime(context['end_date'], '%Y-%m-%d').date()
-            
+
             if context['data_type'] == 'processed':
                 # For processed data, just count unique turtles
                 query = TrtObservations.objects.filter(
                     observation_date__gte=start_date,
                     observation_date__lte=end_date
                 )
-                
+
                 # Apply filters
                 if context.get('selected_places'):
                     query = query.filter(place_code__in=context['selected_places'])
@@ -5673,13 +5673,13 @@ class NestingSeasonStatsView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                     for loc in context['selected_locations']:
                         location_filter |= Q(place_code__place_code__startswith=loc)
                     query = query.filter(location_filter)
-                    
+
                 if context['selected_sex']:
                     query = query.filter(turtle__sex=context['selected_sex'])
-                    
+
                 if context['selected_species']:
                     query = query.filter(turtle__species_code=context['selected_species'])
-                
+
                 # Group by place and count unique turtles
                 results = query.values(
                     'place_code__place_code',
@@ -5687,13 +5687,13 @@ class NestingSeasonStatsView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 ).annotate(
                     count=Count('turtle', distinct=True)
                 ).order_by('place_code__place_code')
-                
+
             else:
                 query = TrtDataEntry.objects.filter(
                     observation_date__gte=start_date,
                     observation_date__lte=end_date
                 )
-                
+
                 # Apply filters
                 if context.get('selected_places'):
                     query = query.filter(place_code__in=context['selected_places'])
@@ -5702,7 +5702,7 @@ class NestingSeasonStatsView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                     for loc in context['selected_locations']:
                         location_filter |= Q(place_code__place_code__startswith=loc)
                     query = query.filter(location_filter)
-                
+
                 if context['selected_sex']:
                     query = query.filter(sex=context['selected_sex'])
                 if context['selected_species']:
@@ -5746,7 +5746,7 @@ class NestingSeasonStatsView(LoginRequiredMixin, SuperUserRequiredMixin, View):
 
                 # Merge results
                 results_dict = {}
-                
+
                 # Handle records with turtle_id
                 for result in has_turtle_results:
                     place_code = result['place_code__place_code']
@@ -5768,13 +5768,13 @@ class NestingSeasonStatsView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                             'place_code__place_name': result['place_code__place_name'],
                             'count': 0
                         }
-                    
+
                     # Collect all non-null tag values
                     all_tags = []
                     for field, value in result.items():
                         if field not in ['place_code__place_code', 'place_code__place_name'] and value:
                             all_tags.append(str(value))
-                    
+
                     if all_tags:
                         tag_combo = tuple(sorted(all_tags))
                         if tag_combo not in processed_tags:
@@ -5787,13 +5787,13 @@ class NestingSeasonStatsView(LoginRequiredMixin, SuperUserRequiredMixin, View):
 
             results_list = list(results)
 
-            if context.get('selected_locations') and not context.get('selected_places'): 
+            if context.get('selected_locations') and not context.get('selected_places'):
                 total = sum(item['count'] for item in results_list)
                 return {
                     'details': results_list,
                     'total': total
                 }
-            
+
             return {
                 'details': results_list,
                 'total': None
@@ -5805,13 +5805,13 @@ class NestingSeasonStatsView(LoginRequiredMixin, SuperUserRequiredMixin, View):
                 'total': None,
                 'error': str(e)
             }
-    
+
     def get(self, request, *args, **kwargs):
         """Handle GET request"""
         context = self.get_context_data()
         return render(request, self.template_name, context)
-    
-    
+
+
 class BatchesReviewView(LoginRequiredMixin, SuperUserRequiredMixin,PaginateMixin, ListView):
     model = TrtDataEntry
     template_name = 'wamtram2/batches_review.html'
@@ -5820,19 +5820,19 @@ class BatchesReviewView(LoginRequiredMixin, SuperUserRequiredMixin,PaginateMixin
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        
+
         queryset = queryset.filter(
-            Q(do_not_process=True) |  
-            (Q(error_message__isnull=False) & 
-            ~Q(error_message='None') & 
-            ~Q(error_message='Observation added to database'))  
+            Q(do_not_process=True) |
+            (Q(error_message__isnull=False) &
+            ~Q(error_message='None') &
+            ~Q(error_message='Observation added to database'))
         )
-            
+
         # Apply batch filter conditions
         location = self.request.GET.get('location')
         place = self.request.GET.get('place')
         year = self.request.GET.get('year')
-        
+
         if location or place or year:
             batch_query = Q()
             if location and place and year:
@@ -5846,24 +5846,24 @@ class BatchesReviewView(LoginRequiredMixin, SuperUserRequiredMixin,PaginateMixin
             elif year:
                 year_code = str(year)[-2:]
                 batch_query = Q(entry_batch__batches_code__endswith=year_code)
-                
+
             queryset = queryset.filter(batch_query)
-        
+
         return queryset.select_related('entry_batch').order_by('data_entry_id')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['page_title'] = 'Review Entries - ' + settings.SITE_TITLE
-        
+
         # Add data for filter selection
         context['locations'] = TrtLocations.get_ordered_locations()
         context['years'] = range(2020, datetime.now().year + 1)
-        
+
         # Save current filter conditions
         context['selected_location'] = self.request.GET.get('location', '')
         context['selected_place'] = self.request.GET.get('place', '')
         context['selected_year'] = self.request.GET.get('year', '')
-        
+
         return context
-    
-    
+
+
