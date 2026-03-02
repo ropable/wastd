@@ -296,6 +296,11 @@ class TrtDataEntryForm(forms.ModelForm):
         
         self.fields['alive'].queryset = TrtYesNo.objects.all()
 
+        self.fields['datum_code'] = forms.ModelChoiceField(
+            queryset=TrtDatumCodes.objects.all(),
+            initial='WGS84',
+            required=False
+        )
 
         damage_codes = TrtDamageCodes.objects.all()
         
