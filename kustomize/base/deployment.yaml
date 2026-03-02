@@ -20,18 +20,12 @@ spec:
           image: ghcr.io/dbca-wa/wastd
           imagePullPolicy: Always
           env:
-            - name: ALLOWED_HOSTS
-              value: '.dbca.wa.gov.au'
-            - name: CSRF_TRUSTED_ORIGINS
-              value: 'https://*.dbca.wa.gov.au'
-            - name: EMAIL_HOST
-              value: 'smtp.lan.fyi'
             - name: TZ
               value: 'Australia/Perth'
           resources:
             requests:
               memory: '100Mi'
-              cpu: '5m'
+              cpu: '10m'
             limits:
               memory: '2Gi'
               cpu: '1000m'
@@ -67,13 +61,45 @@ spec:
             timeoutSeconds: 10
           securityContext:
             runAsNonRoot: true
-            runAsUser: 1000
+            runAsUser: 10001
             privileged: false
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmpfs-ram
+      volumes:
+        - name: tmpfs-ram
+          emptyDir:
+            medium: 'Memory'
       restartPolicy: Always
       terminationGracePeriodSeconds: 180
       automountServiceAccountToken: false
+      tolerations:
+        - key: arch
+          operator: Equal
+          value: arm64
+          effect: NoSchedule
+      affinity:
+        # Set a node affinity to favour ARM64-based nodes (preference only).
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: arch
+                    operator: In
+                    values:
+                      - arm64
+        # Set a pod anti-affinity to spread workload pods between nodes (preference only).
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: turtles-deployment
+                topologyKey: kubernetes.io/hostname
