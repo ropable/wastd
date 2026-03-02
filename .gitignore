@@ -85,3 +85,26 @@ compose.yaml
 backup/
 
 *.bacpac
+
+# =========================
+# Local development only
+# =========================
+
+# docker / compose
+docker-compose.dev.yml
+
+# dev-only shell scripts
+*.dev.sh
+
+# dev-only SQL
+*.dev.sql
+
+# dev-only entrypoints / init
+entrypoint.sh
+init-*.dev.sh
+wait-for-db.sh
+
+# local env files
+.env.dev
+.env.dev.*
+
