@@ -175,7 +175,6 @@ class TrtDataEntryForm(forms.ModelForm):
             "body_part_3",
             "damage_code_3",
             "activity_code",
-            "nesting",
             "interrupted",
             "sample_label_1",
             "tissue_type_1",
@@ -296,12 +295,7 @@ class TrtDataEntryForm(forms.ModelForm):
         )
         
         self.fields['alive'].queryset = TrtYesNo.objects.all()
-        
-        self.fields['datum_code'] = forms.ModelChoiceField(
-            queryset=TrtDatumCodes.objects.all(),
-            initial='WGS84',
-            required=False
-        )
+
 
         damage_codes = TrtDamageCodes.objects.all()
         
@@ -614,7 +608,6 @@ class TrtDataEntryForm(forms.ModelForm):
             instance.nesting = TrtYesNo.objects.get(code="Y")
         else:
             instance.nesting = None
-
         # Save the instance to the database
         if commit:
             instance.save()
