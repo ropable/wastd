@@ -609,8 +609,25 @@ class TrtDataEntryForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
-    
-    
+
+    def clean_latitude(self):
+        lat = self.cleaned_data.get("latitude")
+        if lat is None:
+            return lat
+        lat = -abs(lat)
+        if not (-90 <= lat <= 90):
+            raise forms.ValidationError("Latitude must be between -90 and 90.")
+        return lat
+
+    def clean_longitude(self):
+        lon = self.cleaned_data.get("longitude")
+        if lon is None:
+            return lon
+        lon = abs(lon)
+        if not (-180 <= lon <= 180):
+            raise forms.ValidationError("Longitude must be between -180 and 180.")
+        return lon
+
     def clean(self):
         cleaned_data = super().clean()
         do_not_process = cleaned_data.get("do_not_process")
@@ -628,24 +645,15 @@ class TrtDataEntryForm(forms.ModelForm):
                 cleaned_data['nesting'] = None
         except TrtYesNo.DoesNotExist:
             raise forms.ValidationError("Cannot find the corresponding nesting value")
-        
-        if do_not_process:
-            return cleaned_data
             
         place_code = cleaned_data.get("place_code")
         if not place_code:
             raise forms.ValidationError("The place code is required.")
-        
-        latitude = cleaned_data.get("latitude")
-        if latitude is not None:
-            latitude_str = str(latitude)
-            if not latitude_str.startswith('-') and not latitude_str.startswith('-'):
-                cleaned_data['latitude'] = f'-{latitude}'
-            else:
-                cleaned_data['latitude'] = latitude_str
+
+        if do_not_process:
+            return cleaned_data
                 
         return cleaned_data
-
 
 class DataEntryUserModelForm(forms.ModelForm):
     qs = TrtPersons.objects.all()
