@@ -175,7 +175,6 @@ class TrtDataEntryForm(forms.ModelForm):
             "body_part_3",
             "damage_code_3",
             "activity_code",
-            "nesting",
             "interrupted",
             "sample_label_1",
             "tissue_type_1",
@@ -296,7 +295,7 @@ class TrtDataEntryForm(forms.ModelForm):
         )
         
         self.fields['alive'].queryset = TrtYesNo.objects.all()
-        
+
         self.fields['datum_code'] = forms.ModelChoiceField(
             queryset=TrtDatumCodes.objects.all(),
             initial='WGS84',
@@ -576,7 +575,7 @@ class TrtDataEntryForm(forms.ModelForm):
     # saves the people names as well as the person_id for use in MS Access front end
     def save(self, commit=True):
         instance = super().save(commit=False)
-        
+
         # Handle date time: always convert entered Perth time (UTC+8) to UTC before saving
         if instance.observation_date:
             instance.observation_date += timedelta(hours=8)
@@ -605,6 +604,15 @@ class TrtDataEntryForm(forms.ModelForm):
             person = TrtPersons.objects.get(person_id=instance.entered_by_id.person_id)
             instance.entered_by = "{} {}".format(person.first_name, person.surname)
 
+        clutch_completed = self.cleaned_data.get("clutch_completed")
+        clutch_completed_code = clutch_completed.code if clutch_completed else None
+
+        if clutch_completed_code in ("O", "N"):
+            instance.nesting = TrtYesNo.objects.get(code="N")
+        elif clutch_completed_code in ("Y", "P"):
+            instance.nesting = TrtYesNo.objects.get(code="Y")
+        else:
+            instance.nesting = None
         # Save the instance to the database
         if commit:
             instance.save()
@@ -627,33 +635,6 @@ class TrtDataEntryForm(forms.ModelForm):
         if not (-180 <= lon <= 180):
             raise forms.ValidationError("Longitude must be between -180 and 180.")
         return lon
-
-    def clean(self):
-        cleaned_data = super().clean()
-        do_not_process = cleaned_data.get("do_not_process")
-        
-        clutch_completed_value = cleaned_data.get('clutch_completed')
-                
-        try:
-            if clutch_completed_value and clutch_completed_value.code in ['O', 'N']:
-                cleaned_data['nesting'] = TrtYesNo.objects.get(code='N')
-            elif clutch_completed_value and clutch_completed_value.code == 'Y':
-                cleaned_data['nesting'] = TrtYesNo.objects.get(code='Y')
-            elif clutch_completed_value and clutch_completed_value.code == 'P':
-                cleaned_data['nesting'] = TrtYesNo.objects.get(code='Y')
-            else:
-                cleaned_data['nesting'] = None
-        except TrtYesNo.DoesNotExist:
-            raise forms.ValidationError("Cannot find the corresponding nesting value")
-            
-        place_code = cleaned_data.get("place_code")
-        if not place_code:
-            raise forms.ValidationError("The place code is required.")
-
-        if do_not_process:
-            return cleaned_data
-                
-        return cleaned_data
 
 class DataEntryUserModelForm(forms.ModelForm):
     qs = TrtPersons.objects.all()
@@ -842,5 +823,3 @@ class TrtNestingSeasonForm(forms.ModelForm):
                 }
             ),
         }
- 
- 
