@@ -12,11 +12,6 @@ on:
     tags:
       - '*'
   workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to build'
-        required: true
-        default: 'master'
 
 env:
   # The name of the Docker image to be built and pushed to GitHub Container Registry.
