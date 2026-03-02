@@ -18,6 +18,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.template.loader import render_to_string
 from django.core.serializers.json import DjangoJSONEncoder
+from django.views.generic import ListView
 import json
 import csv
 from datetime import timedelta
@@ -416,8 +417,6 @@ class EntryBatchDetailView(LoginRequiredMixin, FormMixin, ListView):
         batch_id = self.kwargs.get("batch_id")
         return reverse("wamtram2:entry_batch_detail", args=[batch_id])
 
-
-from django.views.generic import ListView
 
 class MultiBatchEntryListView(LoginRequiredMixin, ListView):
     model = TrtDataEntry
