@@ -11,9 +11,13 @@
 
 {% block extra_head %}
 <!-- Load jQuery first -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"
+    integrity="sha384-vtXRMe3mGCbOeY7l30aIg8H9p3GdeSe4IFlP6G8JMa7o7lXvnz3GFKzPxzJdPfGK"
+    crossorigin="anonymous"></script>
 <!-- Load Bootstrap's JavaScript bundle -->
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"
+    integrity="sha384-LtrjvnR4Twt/qOuYxE721u19sVFLVSA4hf/rRt6PrZTmiPltdZcI7q7PXQBYTKyf"
+    crossorigin="anonymous"></script>
 {{ form.media }}
 {% endblock extra_head %}
 
@@ -242,7 +246,15 @@
     function updateSelectOptions(selectId, options) {
         const select = document.getElementById(selectId);
         const label = select.previousElementSibling.textContent;
-        select.innerHTML = `<option value="">All ${label}</option>`;
+
+        // Clear options safely
+        select.innerHTML = '';
+
+        // Add default option safely
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = `All ${label}`;
+        select.appendChild(defaultOption);
         options.forEach(function (option) {
             const optionElement = document.createElement('option');
             optionElement.value = option.value;
