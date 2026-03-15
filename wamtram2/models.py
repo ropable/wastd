@@ -1181,9 +1181,6 @@ class TrtDataEntryPersons(models.Model):
             )
         ]
 
-    # def __str__(self):
-    #     return f"{self.person_name}"
-
 
 class TrtDatumCodes(models.Model):
     datum_code = models.CharField(

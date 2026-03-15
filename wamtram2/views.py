@@ -1993,32 +1993,48 @@ class ExportDataView(LoginRequiredMixin, View):
         )
         entry_type = request.GET.get("entry_type", "field")
 
-        queryset = TrtDataEntry.objects.all()
-        
-        # Filter based on entry_type
-        if entry_type == "processed":
-            queryset = queryset.exclude(observation_id__isnull=True)
-
         user = request.user
+        user_orgs = []
         if not user.is_superuser:
             user_organisations = user.organisations.all()
-            if user_organisations.exists():
+            if not user_organisations.exists():
+                return JsonResponse({"locations": []})
+            user_orgs = [org.code for org in user_organisations]
+
+        if entry_type == "processed":
+            queryset = TrtObservations.objects.all()
+            if not user.is_superuser:
                 related_batch_ids = TrtEntryBatchOrganisation.objects.filter(
-                    organisation__in=[org.code for org in user_organisations]
+                    organisation__in=user_orgs
                 ).values_list('trtentrybatch_id', flat=True)
                 queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
-            else:
-                return JsonResponse({"locations": []})
 
-        if from_date and to_date:
-            queryset = queryset.filter(observation_date__range=[from_date, to_date])
+            if from_date and to_date:
+                queryset = queryset.filter(observation_date__range=[from_date, to_date])
 
-        # Get unique locations from the places used in the filtered data entries
-        locations = TrtLocations.objects.filter(
-            location_code__in=TrtPlaces.objects.filter(
-                place_code__in=queryset.values_list('place_code', flat=True)
-            ).values_list('location_code', flat=True)
-        ).distinct()
+            # Get locations through place_code
+            locations = TrtLocations.objects.filter(
+                location_code__in=TrtPlaces.objects.filter(
+                    place_code__in=queryset.values_list('place_code', flat=True)
+                ).values_list('location_code', flat=True)
+            ).distinct()
+        else:
+            # Field entries
+            queryset = TrtDataEntry.objects.all()
+            if not user.is_superuser:
+                related_batch_ids = TrtEntryBatchOrganisation.objects.filter(
+                    organisation__in=user_orgs
+                ).values_list('trtentrybatch_id', flat=True)
+                queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
+
+            if from_date and to_date:
+                queryset = queryset.filter(observation_date__range=[from_date, to_date])
+
+            locations = TrtLocations.objects.filter(
+                location_code__in=TrtPlaces.objects.filter(
+                    place_code__in=queryset.values_list('place_code', flat=True)
+                ).values_list('location_code', flat=True)
+            ).distinct()
 
         # Use the custom ordering from TrtLocations model
         locations = TrtLocations.get_ordered_locations().filter(
@@ -2044,37 +2060,51 @@ class ExportDataView(LoginRequiredMixin, View):
         location_code = request.GET.get("location_code")
         entry_type = request.GET.get("entry_type", "field")
 
-        # First get data accessible to the user
-        queryset = TrtDataEntry.objects.all()
         user = request.user
+        user_orgs = []
         if not user.is_superuser:
             user_organisations = user.organisations.all()
-            if user_organisations.exists():
+            if not user_organisations.exists():
+                return JsonResponse({"places": []})
+            user_orgs = [org.code for org in user_organisations]
+
+        if entry_type == "processed":
+            queryset = TrtObservations.objects.all()
+            if not user.is_superuser:
                 related_batch_ids = TrtEntryBatchOrganisation.objects.filter(
-                    organisation__in=[org.code for org in user_organisations]
+                    organisation__in=user_orgs
                 ).values_list('trtentrybatch_id', flat=True)
                 queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
-            else:
-                return JsonResponse({"places": []})
 
-        # Apply date range filter
-        if from_date and to_date:
-            queryset = queryset.filter(observation_date__range=[from_date, to_date])
+            if from_date and to_date:
+                queryset = queryset.filter(observation_date__range=[from_date, to_date])
 
-        # Filter based on entry_type
-        if entry_type == "processed":
-            queryset = queryset.exclude(observation_id__isnull=True)
+            # Get places from filtered queryset
+            places = TrtPlaces.objects.filter(
+                place_code__in=queryset.values_list('place_code', flat=True)
+            )
+        else:
+            # Field entries
+            queryset = TrtDataEntry.objects.all()
+            if not user.is_superuser:
+                related_batch_ids = TrtEntryBatchOrganisation.objects.filter(
+                    organisation__in=user_orgs
+                ).values_list('trtentrybatch_id', flat=True)
+                queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
 
-        # Get places from filtered queryset
-        places = TrtPlaces.objects.filter(
-            place_code__in=queryset.values_list('place_code', flat=True)
-        )
+            if from_date and to_date:
+                queryset = queryset.filter(observation_date__range=[from_date, to_date])
+
+            # Get places from filtered queryset
+            places = TrtPlaces.objects.filter(
+                place_code__in=queryset.values_list('place_code', flat=True)
+            )
         
         # Filter places by location if specified
         if location_code:
             places = places.filter(location_code=location_code)
             
-        places = places.select_related('location_code').distinct()
+        places = places.select_related('location_code').distinct().order_by('place_name')
 
         place_list = [
             {
@@ -2094,28 +2124,45 @@ class ExportDataView(LoginRequiredMixin, View):
             request.GET.get("observation_date_to")
         )
         entry_type = request.GET.get("entry_type", "field")
-        queryset = TrtDataEntry.objects.all()
+
         user = request.user
+        user_orgs = []
         if not user.is_superuser:
             user_organisations = user.organisations.all()
-            if user_organisations.exists():
+            if not user_organisations.exists():
+                return JsonResponse({"species": []})
+            user_orgs = [org.code for org in user_organisations]
+
+        if entry_type == "processed":
+            queryset = TrtObservations.objects.all()
+            if not user.is_superuser:
                 related_batch_ids = TrtEntryBatchOrganisation.objects.filter(
-                    organisation__in=[org.code for org in user_organisations]
+                    organisation__in=user_orgs
                 ).values_list('trtentrybatch_id', flat=True)
                 queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
-            else:
-                return JsonResponse({"species": []})
 
-        if from_date and to_date:
-            queryset = queryset.filter(observation_date__range=[from_date, to_date])
+            if from_date and to_date:
+                queryset = queryset.filter(observation_date__range=[from_date, to_date])
 
-        # Filter based on entry_type
-        if entry_type == "processed":
-            queryset = queryset.exclude(observation_id__isnull=True)
+            species_codes = queryset.filter(turtle__isnull=False).values_list('turtle__species_code', flat=True)
+            species = TrtSpecies.objects.filter(
+                species_code__in=species_codes
+            ).distinct()
+        else:
+            # Field entries
+            queryset = TrtDataEntry.objects.all()
+            if not user.is_superuser:
+                related_batch_ids = TrtEntryBatchOrganisation.objects.filter(
+                    organisation__in=user_orgs
+                ).values_list('trtentrybatch_id', flat=True)
+                queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
 
-        species = TrtSpecies.objects.filter(
-            species_code__in=queryset.values_list('species_code', flat=True)
-        ).distinct()
+            if from_date and to_date:
+                queryset = queryset.filter(observation_date__range=[from_date, to_date])
+
+            species = TrtSpecies.objects.filter(
+                species_code__in=queryset.values_list('species_code', flat=True)
+            ).distinct()
 
         species_list = [
             {"value": specie.species_code, "label": specie.common_name}
@@ -2132,26 +2179,40 @@ class ExportDataView(LoginRequiredMixin, View):
         )
         entry_type = request.GET.get("entry_type", "field")
 
-        queryset = TrtDataEntry.objects.all()
         user = request.user
+        user_orgs = []
         if not user.is_superuser:
             user_organisations = user.organisations.all()
-            if user_organisations.exists():
+            if not user_organisations.exists():
+                return JsonResponse({"sexes": []})
+            user_orgs = [org.code for org in user_organisations]
+
+        if entry_type == "processed":
+            queryset = TrtObservations.objects.all()
+            if not user.is_superuser:
                 related_batch_ids = TrtEntryBatchOrganisation.objects.filter(
-                    organisation__in=[org.code for org in user_organisations]
+                    organisation__in=user_orgs
                 ).values_list('trtentrybatch_id', flat=True)
                 queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
-            else:
-                return JsonResponse({"sexes": []})
 
-        if from_date and to_date:
-            queryset = queryset.filter(observation_date__range=[from_date, to_date])
+            if from_date and to_date:
+                queryset = queryset.filter(observation_date__range=[from_date, to_date])
 
-        # Filter based on entry_type
-        if entry_type == "processed":
-            queryset = queryset.exclude(observation_id__isnull=True)
+            used_sexes = queryset.filter(turtle__isnull=False).values_list('turtle__sex', flat=True).distinct()
+        else:
+            # Field entries
+            queryset = TrtDataEntry.objects.all()
+            if not user.is_superuser:
+                related_batch_ids = TrtEntryBatchOrganisation.objects.filter(
+                    organisation__in=user_orgs
+                ).values_list('trtentrybatch_id', flat=True)
+                queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
 
-        used_sexes = queryset.values_list('sex', flat=True).distinct()
+            if from_date and to_date:
+                queryset = queryset.filter(observation_date__range=[from_date, to_date])
+
+            used_sexes = queryset.values_list('sex', flat=True).distinct()
+
         sex_list = [
             {"value": choice[0], "label": choice[1]}
             for choice in SEX_CHOICES
@@ -2193,51 +2254,94 @@ class ExportDataView(LoginRequiredMixin, View):
             date_range = f"({from_date.strftime('%Y%m%d')}-{to_date.strftime('%Y%m%d')})"
             filename = "_".join(filename_parts) + date_range if filename_parts else f"data_export{date_range}"
 
-            # Build queryset
-            queryset = TrtDataEntry.objects.all()
-            
-            # Apply organization filter
-            user = request.user
-            if not user.is_superuser:
-                user_organisations = user.organisations.all()
-                if user_organisations.exists():
-                    related_batch_ids = TrtEntryBatchOrganisation.objects.filter(
-                        organisation__in=[org.code for org in user_organisations]
-                    ).values_list('trtentrybatch_id', flat=True)
-                    queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
-                else:
-                    return HttpResponse("No data available for your organisation", status=403)
-            
-            # Apply filters
-            queryset = queryset.filter(observation_date__range=[from_date, to_date])
-            
+            # Build queryset based on Entry Type
             if entry_type == "processed":
-                queryset = queryset.exclude(observation_id__isnull=True)
-            
-            if location_code:
-                queryset = queryset.filter(place_code__location_code=location_code)
-            elif place_code:
-                queryset = queryset.filter(place_code=place_code)
+                queryset = TrtObservations.objects.all()
                 
-            if species:
-                queryset = queryset.filter(species_code=species)
-            if sex:
-                queryset = queryset.filter(sex=sex)
+                # Apply organization filter
+                user = request.user
+                batch_ids = []
+                if not user.is_superuser:
+                    user_organisations = user.organisations.all()
+                    if user_organisations.exists():
+                        related_batch_ids = TrtEntryBatchOrganisation.objects.filter(
+                            organisation__in=[org.code for org in user_organisations]
+                        ).values_list('trtentrybatch_id', flat=True)
+                        queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
+                        batch_ids = related_batch_ids
+                    else:
+                        return HttpResponse("No data available for your organisation", status=403)
                 
-            # Optimize query with select_related
-            queryset = queryset.select_related(
-                'entry_batch',
-                'place_code',
-                'place_code__location_code',
-                'observation_id'
-            )
+                # Apply filters
+                queryset = queryset.filter(observation_date__range=[from_date, to_date])
+                
+                if location_code:
+                    queryset = queryset.filter(place_code__location_code=location_code)
+                elif place_code:
+                    queryset = queryset.filter(place_code=place_code)
+                    
+                if species:
+                    queryset = queryset.filter(turtle__species_code=species)
+                if sex:
+                    queryset = queryset.filter(turtle__sex=sex)
+                    
+                # Optimize query with select_related
+                queryset = queryset.select_related(
+                    'entry_batch',
+                    'place_code',
+                    'place_code__location_code',
+                    'turtle'
+                )
+                
+                model_meta = TrtObservations._meta
+
+            else:
+                queryset = TrtDataEntry.objects.all()
+                
+                # Apply organization filter
+                user = request.user
+                batch_ids = []
+                if not user.is_superuser:
+                    user_organisations = user.organisations.all()
+                    if user_organisations.exists():
+                        related_batch_ids = TrtEntryBatchOrganisation.objects.filter(
+                            organisation__in=[org.code for org in user_organisations]
+                        ).values_list('trtentrybatch_id', flat=True)
+                        queryset = queryset.filter(entry_batch_id__in=related_batch_ids)
+                        batch_ids = related_batch_ids
+                    else:
+                        return HttpResponse("No data available for your organisation", status=403)
+                
+                # Apply filters
+                queryset = queryset.filter(observation_date__range=[from_date, to_date])
+                
+                if location_code:
+                    queryset = queryset.filter(place_code__location_code=location_code)
+                elif place_code:
+                    queryset = queryset.filter(place_code=place_code)
+                    
+                if species:
+                    queryset = queryset.filter(species_code=species)
+                if sex:
+                    queryset = queryset.filter(sex=sex)
+                    
+                # Optimize query with select_related
+                queryset = queryset.select_related(
+                    'entry_batch',
+                    'place_code',
+                    'place_code__location_code',
+                    'observation_id'
+                )
+
+                model_meta = TrtDataEntry._meta
 
             # Check if there's any data to export
             if not queryset.exists():
                 return HttpResponse("No data found matching the selected criteria", status=404)
 
             # Pre-fetch batch organizations to avoid N+1 queries
-            batch_ids = set(queryset.values_list('entry_batch_id', flat=True))
+            if user.is_superuser:
+                batch_ids = set(queryset.values_list('entry_batch_id', flat=True))
             batch_orgs = TrtEntryBatchOrganisation.objects.filter(
                 trtentrybatch_id__in=batch_ids
             ).values('trtentrybatch_id', 'organisation')
@@ -2246,6 +2350,63 @@ class ExportDataView(LoginRequiredMixin, View):
             for bo in batch_orgs:
                 org_dict.setdefault(bo['trtentrybatch_id'], []).append(bo['organisation'])
 
+            # Pre-fetch Tags and PIT Tags for Processed Entries
+            tags_dict = {}
+            pit_tags_dict = {}
+            if entry_type == "processed":
+                obs_ids = set(queryset.values_list('observation_id', flat=True))
+                # 1. Tags
+                recorded_tags = TrtRecordedTags.objects.filter(
+                    observation_id__in=obs_ids
+                ).select_related('tag_id').order_by('tag_position', 'side')
+                
+                for rt in recorded_tags:
+                    o_id = rt.observation_id_id
+                    t_list = tags_dict.setdefault(o_id, [])
+                    if len(t_list) < 2:
+                        tag_val = rt.tag_id_id or rt.other_tag_id or ""
+                        t_list.append(str(tag_val))
+                        
+                # 2. PIT Tags
+                recorded_pit_tags = TrtRecordedPitTags.objects.filter(
+                    observation_id__in=obs_ids
+                ).select_related('pittag_id').order_by('pit_tag_position')
+                
+                for rpt in recorded_pit_tags:
+                    o_id = rpt.observation_id_id
+                    pt_list = pit_tags_dict.setdefault(o_id, [])
+                    if len(pt_list) < 2:
+                        pt_val = rpt.pittag_id_id or ""
+                        pt_list.append(str(pt_val))
+
+                # 3. Measurements
+                measurements_dict = {}
+                measurements = TrtMeasurements.objects.filter(
+                    observation_id__in=obs_ids
+                ).select_related('measurement_type').order_by('id')
+                
+                for m in measurements:
+                    o_id = m.observation_id
+                    m_list = measurements_dict.setdefault(o_id, [])
+                    if len(m_list) < 2:
+                        m_type = m.measurement_type_id or ""
+                        m_val = str(m.measurement_value) if m.measurement_value is not None else ""
+                        m_list.append((str(m_type), m_val))
+
+                # 4. Damages
+                damages_dict = {}
+                damages = TrtDamage.objects.filter(
+                    observation_id__in=obs_ids
+                ).select_related('body_part', 'damage_code')
+                
+                for d in damages:
+                    o_id = d.observation_id
+                    d_list = damages_dict.setdefault(o_id, [])
+                    if len(d_list) < 2:
+                        d_part = d.body_part_id or ""
+                        d_code = d.damage_code_id or ""
+                        d_list.append((str(d_part), str(d_code)))
+
             try:
                 if file_format == "csv":
                     response = HttpResponse(content_type="text/csv")
@@ -2253,9 +2414,20 @@ class ExportDataView(LoginRequiredMixin, View):
                     writer = csv.writer(response)
 
                     # Write headers
-                    headers = [field.name for field in TrtDataEntry._meta.fields]
+                    headers = [field.name for field in model_meta.fields]
                     headers.append('organisations')
-                    headers.append('observation_status')
+                    if entry_type == "field":
+                        headers.append('observation_status')
+                    elif entry_type == "processed":
+                        headers.extend([
+                            "tag_1_id", "tag_2_id",
+                            "pit_tag_1_id", "pit_tag_2_id",
+                            "measurement_1_type", "measurement_1_value",
+                            "measurement_2_type", "measurement_2_value",
+                            "damage_1_body_part", "damage_1_code",
+                            "damage_2_body_part", "damage_2_code",
+                            "turtle_species_code", "turtle_sex", "turtle_status"
+                        ])
                     writer.writerow(headers)
                 
                     # Write data
@@ -2263,20 +2435,20 @@ class ExportDataView(LoginRequiredMixin, View):
                         organisations = org_dict.get(entry.entry_batch_id, [])
                         org_str = ', '.join(organisations)
                         
-                        # Get observation status from pre-fetched related object
-                        observation_status = ''
-                        if entry.observation_id_id is not None and getattr(entry, 'observation_id', None):
-                            observation_status = entry.observation_id.observation_status or ''
-                        
                         row = []
-                        for field in TrtDataEntry._meta.fields:
+                        for field in model_meta.fields:
                             name = field.name
 
-                            # Ensure observation_id column exports the raw FK ID
-                            if name == "observation_id":
+                            if name == "observation_id" and entry_type == "field":
+                                # Ensure observation_id column exports the raw FK ID
                                 value = entry.observation_id_id or ""
+                            elif name == "turtle" and entry_type == "processed":
+                                value = entry.turtle_id or ""
                             else:
-                                value = getattr(entry, name)
+                                if field.is_relation and field.many_to_one:
+                                    value = getattr(entry, f"{name}_id", "")
+                                else:
+                                    value = getattr(entry, name)
 
                             # Custom formatting for observation_date / observation_time
                             if name == "observation_date" and isinstance(value, (datetime, date)):
@@ -2290,7 +2462,49 @@ class ExportDataView(LoginRequiredMixin, View):
 
                             row.append(str(value))
                         row.append(org_str)
-                        row.append(observation_status)
+
+                        if entry_type == "field":
+                            # Get observation status from pre-fetched related object
+                            observation_status = ''
+                            if entry.observation_id_id is not None and getattr(entry, 'observation_id', None):
+                                observation_status = entry.observation_id.observation_status or ''
+                            row.append(observation_status)
+                        elif entry_type == "processed":
+                            # Extract Tags up to 2
+                            obs_id = entry.observation_id
+                            t_list = tags_dict.get(obs_id, [])
+                            pt_list = pit_tags_dict.get(obs_id, [])
+                            
+                            t1 = t_list[0] if len(t_list) > 0 else ""
+                            t2 = t_list[1] if len(t_list) > 1 else ""
+                            pt1 = pt_list[0] if len(pt_list) > 0 else ""
+                            pt2 = pt_list[1] if len(pt_list) > 1 else ""
+                            
+                            m_list = measurements_dict.get(obs_id, [])
+                            m1_t, m1_v = m_list[0] if len(m_list) > 0 else ("", "")
+                            m2_t, m2_v = m_list[1] if len(m_list) > 1 else ("", "")
+
+                            d_list = damages_dict.get(obs_id, [])
+                            d1_b, d1_c = d_list[0] if len(d_list) > 0 else ("", "")
+                            d2_b, d2_c = d_list[1] if len(d_list) > 1 else ("", "")
+
+                            row.extend([
+                                t1, t2, pt1, pt2,
+                                m1_t, m1_v, m2_t, m2_v,
+                                d1_b, d1_c, d2_b, d2_c
+                            ])
+                            
+                            # Append specific turtle info
+                            turtle = getattr(entry, 'turtle', None)
+                            if turtle:
+                                row.extend([
+                                    getattr(turtle, 'species_code_id', ""),
+                                    getattr(turtle, 'sex', ""),
+                                    getattr(turtle, 'turtle_status_id', "")
+                                ])
+                            else:
+                                row.extend(["", "", ""])
+
                         writer.writerow(row)
                         
                 else:  # xlsx format
@@ -2303,9 +2517,20 @@ class ExportDataView(LoginRequiredMixin, View):
                     ws = wb.active
                     
                     # Write headers
-                    headers = [field.name for field in TrtDataEntry._meta.fields]
+                    headers = [field.name for field in model_meta.fields]
                     headers.append('organisations')
-                    headers.append('observation_status')
+                    if entry_type == "field":
+                        headers.append('observation_status')
+                    elif entry_type == "processed":
+                        headers.extend([
+                            "tag_1_id", "tag_2_id",
+                            "pit_tag_1_id", "pit_tag_2_id",
+                            "measurement_1_type", "measurement_1_value",
+                            "measurement_2_type", "measurement_2_value",
+                            "damage_1_body_part", "damage_1_code",
+                            "damage_2_body_part", "damage_2_code",
+                            "turtle_species_code", "turtle_sex", "turtle_status"
+                        ])
                     ws.append(headers)
                     
                     # Write data
@@ -2313,19 +2538,19 @@ class ExportDataView(LoginRequiredMixin, View):
                         organisations = org_dict.get(entry.entry_batch_id, [])
                         org_str = ', '.join(organisations)
                         
-                        # Get observation status from pre-fetched related object
-                        observation_status = ''
-                        if entry.observation_id_id is not None and getattr(entry, 'observation_id', None):
-                            observation_status = entry.observation_id.observation_status or ''
-                        
                         row = []
-                        for field in TrtDataEntry._meta.fields:
+                        for field in model_meta.fields:
                             name = field.name
 
-                            if name == "observation_id":
+                            if name == "observation_id" and entry_type == "field":
                                 value = entry.observation_id_id or ""
+                            elif name == "turtle" and entry_type == "processed":
+                                value = entry.turtle_id or ""
                             else:
-                                value = getattr(entry, name)
+                                if field.is_relation and field.many_to_one:
+                                    value = getattr(entry, f"{name}_id", "")
+                                else:
+                                    value = getattr(entry, name)
 
                             if name == "observation_date" and isinstance(value, (datetime, date)):
                                 value = value.strftime("%Y-%m-%d") if value else ""
@@ -2340,7 +2565,49 @@ class ExportDataView(LoginRequiredMixin, View):
 
                             row.append(value)
                         row.append(org_str)
-                        row.append(observation_status)
+
+                        if entry_type == "field":
+                            # Get observation status from pre-fetched related object
+                            observation_status = ''
+                            if entry.observation_id_id is not None and getattr(entry, 'observation_id', None):
+                                observation_status = entry.observation_id.observation_status or ''
+                            row.append(observation_status)
+                        elif entry_type == "processed":
+                            # Extract Tags up to 2
+                            obs_id = entry.observation_id
+                            t_list = tags_dict.get(obs_id, [])
+                            pt_list = pit_tags_dict.get(obs_id, [])
+                            
+                            t1 = t_list[0] if len(t_list) > 0 else ""
+                            t2 = t_list[1] if len(t_list) > 1 else ""
+                            pt1 = pt_list[0] if len(pt_list) > 0 else ""
+                            pt2 = pt_list[1] if len(pt_list) > 1 else ""
+                            
+                            m_list = measurements_dict.get(obs_id, [])
+                            m1_t, m1_v = m_list[0] if len(m_list) > 0 else ("", "")
+                            m2_t, m2_v = m_list[1] if len(m_list) > 1 else ("", "")
+
+                            d_list = damages_dict.get(obs_id, [])
+                            d1_b, d1_c = d_list[0] if len(d_list) > 0 else ("", "")
+                            d2_b, d2_c = d_list[1] if len(d_list) > 1 else ("", "")
+
+                            row.extend([
+                                t1, t2, pt1, pt2,
+                                m1_t, m1_v, m2_t, m2_v,
+                                d1_b, d1_c, d2_b, d2_c
+                            ])                            
+                            
+                            # Append specific turtle info
+                            turtle = getattr(entry, 'turtle', None)
+                            if turtle:
+                                row.extend([
+                                    str(getattr(turtle, 'species_code_id', "")),
+                                    str(getattr(turtle, 'sex', "")),
+                                    str(getattr(turtle, 'turtle_status_id', ""))
+                                ])
+                            else:
+                                row.extend(["", "", ""])
+
                         ws.append(row)
                     
                     wb.save(response)
