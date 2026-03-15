@@ -2236,6 +2236,16 @@ class ExportDataView(LoginRequiredMixin, View):
             if not queryset.exists():
                 return HttpResponse("No data found matching the selected criteria", status=404)
 
+            # Pre-fetch batch organizations to avoid N+1 queries
+            batch_ids = set(queryset.values_list('entry_batch_id', flat=True))
+            batch_orgs = TrtEntryBatchOrganisation.objects.filter(
+                trtentrybatch_id__in=batch_ids
+            ).values('trtentrybatch_id', 'organisation')
+            
+            org_dict = {}
+            for bo in batch_orgs:
+                org_dict.setdefault(bo['trtentrybatch_id'], []).append(bo['organisation'])
+
             try:
                 if file_format == "csv":
                     response = HttpResponse(content_type="text/csv")
@@ -2250,18 +2260,13 @@ class ExportDataView(LoginRequiredMixin, View):
                 
                     # Write data
                     for entry in queryset:
-                        organisations = TrtEntryBatchOrganisation.objects.filter(
-                            trtentrybatch=entry.entry_batch
-                        ).values_list('organisation', flat=True)
+                        organisations = org_dict.get(entry.entry_batch_id, [])
                         org_str = ', '.join(organisations)
                         
-                        # Get observation status from TrtObservations table
+                        # Get observation status from pre-fetched related object
                         observation_status = ''
-                        if entry.observation_id_id is not None:  # Use observation_id_id to get the actual ID
-                            observation = TrtObservations.objects.filter(
-                                observation_id=entry.observation_id_id
-                            ).values_list('observation_status', flat=True).first()
-                            observation_status = observation if observation else ''
+                        if entry.observation_id_id is not None and getattr(entry, 'observation_id', None):
+                            observation_status = entry.observation_id.observation_status or ''
                         
                         row = []
                         for field in TrtDataEntry._meta.fields:
@@ -2305,18 +2310,13 @@ class ExportDataView(LoginRequiredMixin, View):
                     
                     # Write data
                     for entry in queryset:
-                        organisations = TrtEntryBatchOrganisation.objects.filter(
-                            trtentrybatch=entry.entry_batch
-                        ).values_list('organisation', flat=True)
+                        organisations = org_dict.get(entry.entry_batch_id, [])
                         org_str = ', '.join(organisations)
                         
-                        # Get observation status from TrtObservations table
+                        # Get observation status from pre-fetched related object
                         observation_status = ''
-                        if entry.observation_id_id is not None:  # Use observation_id_id to get the actual ID
-                            observation = TrtObservations.objects.filter(
-                                observation_id=entry.observation_id_id
-                            ).values_list('observation_status', flat=True).first()
-                            observation_status = observation if observation else ''
+                        if entry.observation_id_id is not None and getattr(entry, 'observation_id', None):
+                            observation_status = entry.observation_id.observation_status or ''
                         
                         row = []
                         for field in TrtDataEntry._meta.fields:
