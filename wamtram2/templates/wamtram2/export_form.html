@@ -2,200 +2,208 @@
 {% load static bootstrap4 %}
 
 {% block extra_style %}
-    {{ block.super }}
-    {{ form.media.css }}
-    <link rel="stylesheet" type="text/css" href="{% static 'css/loading_spinner.css' %}">
-    <link rel="stylesheet" type="text/css" href="{% static 'css/loading_overlay.css' %}">
-    <link rel="stylesheet" type="text/css" href="{% static 'css/table_list.css' %}">
+{{ block.super }}
+{{ form.media.css }}
+<link rel="stylesheet" type="text/css" href="{% static 'css/loading_spinner.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'css/loading_overlay.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'css/table_list.css' %}">
 {% endblock %}
 
 {% block extra_head %}
-    <!-- Load jQuery first -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Load Bootstrap's JavaScript bundle -->
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
-    {{ form.media }}
+<!-- Load jQuery first -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"
+    integrity="sha384-vtXRMe3mGCbOeY7l30aIg8H9p3GdeSe4IFlP6G8JMa7o7lXvnz3GFKzPxzJdPfGK"
+    crossorigin="anonymous"></script>
+<!-- Load Bootstrap's JavaScript bundle -->
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"
+    integrity="sha384-LtrjvnR4Twt/qOuYxE721u19sVFLVSA4hf/rRt6PrZTmiPltdZcI7q7PXQBYTKyf"
+    crossorigin="anonymous"></script>
+{{ form.media }}
 {% endblock extra_head %}
 
 {% block breadcrumbs %}
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="breadcrumb" class="d-none d-md-block">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'wamtram2:batches_curation' %}">Manage Batches</a></li>
-            {% if request.user.is_superuser %}
-            <li class="breadcrumb-item"><a href="{% url 'wamtram2:admin_tools' %}">Curation Tools</a></li>
-            {% endif %}
-            <li class="breadcrumb-item active">Export Data</li>
-        </ol>
-    </nav>
+<!-- Breadcrumb Navigation -->
+<nav aria-label="breadcrumb" class="d-none d-md-block">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'wamtram2:batches_curation' %}">Manage Batches</a></li>
+        {% if request.user.is_superuser %}
+        <li class="breadcrumb-item"><a href="{% url 'wamtram2:admin_tools' %}">Curation Tools</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">Export Data</li>
+    </ol>
+</nav>
 {% endblock %}
 
 {% block page_content_inner %}
-    <div class="container">
-        <div class="page-header">
-            <h1 class="page-title"> {{ page_title }}</h1>
-        </div>
-
-        <div id="message-alert" class="alert" role="alert" style="display: none;"></div>
-
-        <!-- Export Data Form -->
-        <form id="exportForm" method="get" action="{% url 'wamtram2:export_data' %}" target="_blank">
-            <!-- Step 1: Select Entry Type -->
-            <div class="step-container">
-                <div class="step-header">Step 1: Select Entry Type</div>
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="entry_type">Entry Type</label>
-                            <select id="entry_type" name="entry_type" class="form-control form-control-sm" onchange="loadFilters()">
-                                <option value="field">Field Entries</option>
-                                <option value="processed">Processed Entries</option>
-                            </select>
-                            <small class="form-text text-muted">
-                                <i class="fas fa-info-circle"></i>
-                                Processed entries only include records that have been processed and assigned an observation ID.
-                            </small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 2: Select Date Range -->
-            <div class="step-container">
-                <div class="step-header">Step 2: Select Date Range</div>
-                {% csrf_token %}
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="observation_date_from">Observation Date From</label>
-                            <input type="date" id="observation_date_from" name="observation_date_from" 
-                                class="form-control form-control-sm" onchange="loadFilters()">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="observation_date_to">Observation Date To</label>
-                            <input type="date" id="observation_date_to" name="observation_date_to" 
-                                class="form-control form-control-sm" onchange="loadFilters()">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 3: Select Filters -->
-            <div class="step-container">
-                <div class="step-header">Step 3: Select Filters</div>
-                <small class="form-text text-info mb-3 d-block">
-                    <i class="fas fa-info-circle"></i>
-                    Choose either a Location or a specific Place, not both.
-                </small>
-                <div class="row">
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="location_code">Location</label>
-                            <select id="location_code" name="location_code" class="form-control form-control-sm select2">
-                                <option value="">All Locations</option>
-                            </select>
-                            <small class="form-text text-warning">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                Note: When selecting an entire location, please consider downloading data in smaller date ranges to avoid timeout issues.
-                            </small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="place_code">Place</label>
-                            <select id="place_code" name="place_code" class="form-control form-control-sm select2">
-                                <option value="">All Places</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="species">Species</label>
-                            <select id="species" name="species" class="form-control form-control-sm select2">
-                                <option value="">All Species</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="sex">Sex</label>
-                            <select id="sex" name="sex" class="form-control form-control-sm select2">
-                                <option value="">All Sexes</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 4: Select File Format -->
-            <div class="step-container">
-                <div class="step-header">Step 4: Select File Format</div>
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="format">File Format</label>
-                            <select id="format" name="format" class="form-control form-control-sm">
-                                <option value="csv">CSV</option>
-                                <option value="xlsx">XLSX</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Download Button -->
-            <div class="row mt-4">
-                <div class="col-md-4">
-                    <button type="submit" class="btn btn-success btn-block">
-                        <i class="fas fa-download"></i> Download
-                    </button>
-                </div>
-            </div>
-        </form>
-
-        <!-- Loading spinner -->
-        <div id="loading-spinner" class="loading-spinner" style="display:none;">
-            <div class="spinner-border text-primary" role="status">
-                <span class="sr-only">Loading...</span>
-            </div>
-        </div>
-
-        <!-- Loading Overlay -->
-        <div id="loading-overlay" class="loading-overlay" style="display:none;"></div>
+<div class="container">
+    <div class="page-header">
+        <h1 class="page-title"> {{ page_title }}</h1>
     </div>
+
+    <div id="message-alert" class="alert" role="alert" style="display: none;"></div>
+
+    <!-- Export Data Form -->
+    <form id="exportForm" method="get" action="{% url 'wamtram2:export_data' %}" target="_blank">
+        <!-- Step 1: Select Entry Type -->
+        <div class="step-container">
+            <div class="step-header">Step 1: Select Entry Type</div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="entry_type">Entry Type</label>
+                        <select id="entry_type" name="entry_type" class="form-control form-control-sm"
+                            onchange="loadFilters()">
+                            <option value="field">Field Entries</option>
+                            <option value="processed">Processed Entries</option>
+                        </select>
+                        <small class="form-text text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            Processed entries only include records that have been processed and assigned an observation
+                            ID.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Select Date Range -->
+        <div class="step-container">
+            <div class="step-header">Step 2: Select Date Range</div>
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="observation_date_from">Observation Date From</label>
+                        <input type="date" id="observation_date_from" name="observation_date_from"
+                            class="form-control form-control-sm" onchange="loadFilters()">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="observation_date_to">Observation Date To</label>
+                        <input type="date" id="observation_date_to" name="observation_date_to"
+                            class="form-control form-control-sm" onchange="loadFilters()">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Select Filters -->
+        <div class="step-container">
+            <div class="step-header">Step 3: Select Filters</div>
+            <small class="form-text text-info mb-3 d-block">
+                <i class="fas fa-info-circle"></i>
+                Choose either a Location or a specific Place, not both.
+            </small>
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="location_code">Location</label>
+                        <select id="location_code" name="location_code" class="form-control form-control-sm select2">
+                            <option value="">All Locations</option>
+                        </select>
+                        <small class="form-text text-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Note: When selecting an entire location, please consider downloading data in smaller date
+                            ranges to avoid timeout issues.
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="place_code">Place</label>
+                        <select id="place_code" name="place_code" class="form-control form-control-sm select2">
+                            <option value="">All Places</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="species">Species</label>
+                        <select id="species" name="species" class="form-control form-control-sm select2">
+                            <option value="">All Species</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="sex">Sex</label>
+                        <select id="sex" name="sex" class="form-control form-control-sm select2">
+                            <option value="">All Sexes</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Select File Format -->
+        <div class="step-container">
+            <div class="step-header">Step 4: Select File Format</div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="format">File Format</label>
+                        <select id="format" name="format" class="form-control form-control-sm">
+                            <option value="csv">CSV</option>
+                            <option value="xlsx">XLSX</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Button -->
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-success btn-block">
+                    <i class="fas fa-download"></i> Download
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Loading spinner -->
+    <div id="loading-spinner" class="loading-spinner" style="display:none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display:none;"></div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
-    <script>
-        // Show loading spinner
-        function showLoadingSpinner() {
-            document.getElementById('loading-spinner').style.display = 'block';
-            document.getElementById('loading-overlay').style.display = 'block';
-        }
+<script>
+    // Show loading spinner
+    function showLoadingSpinner() {
+        document.getElementById('loading-spinner').style.display = 'block';
+        document.getElementById('loading-overlay').style.display = 'block';
+    }
 
-        // Hide loading spinner
-        function hideLoadingSpinner() {
-            document.getElementById('loading-spinner').style.display = 'none';
-            document.getElementById('loading-overlay').style.display = 'none';
-        }
+    // Hide loading spinner
+    function hideLoadingSpinner() {
+        document.getElementById('loading-spinner').style.display = 'none';
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
 
-        // Load all filters via AJAX
-        function loadFilters() {
-            const fromDate = document.getElementById('observation_date_from').value;
-            const toDate = document.getElementById('observation_date_to').value;
+    // Load all filters via AJAX
+    function loadFilters() {
+        const fromDate = document.getElementById('observation_date_from').value;
+        const toDate = document.getElementById('observation_date_to').value;
+        const entryType = document.getElementById('entry_type').value;
 
-            if (fromDate && toDate) {
-                showLoadingSpinner();
+        if (fromDate && toDate) {
+            showLoadingSpinner();
 
-                Promise.all([
-                    fetch(`{% url 'wamtram2:export_data' %}?action=get_locations&observation_date_from=${fromDate}&observation_date_to=${toDate}`),
-                    fetch(`{% url 'wamtram2:export_data' %}?action=get_places&observation_date_from=${fromDate}&observation_date_to=${toDate}`),
-                    fetch(`{% url 'wamtram2:export_data' %}?action=get_species&observation_date_from=${fromDate}&observation_date_to=${toDate}`),
-                    fetch(`{% url 'wamtram2:export_data' %}?action=get_sexes&observation_date_from=${fromDate}&observation_date_to=${toDate}`)
-                ])
+            Promise.all([
+                fetch(`{% url 'wamtram2:export_data' %}?action=get_locations&observation_date_from=${fromDate}&observation_date_to=${toDate}&entry_type=${entryType}`),
+                fetch(`{% url 'wamtram2:export_data' %}?action=get_places&observation_date_from=${fromDate}&observation_date_to=${toDate}&entry_type=${entryType}`),
+                fetch(`{% url 'wamtram2:export_data' %}?action=get_species&observation_date_from=${fromDate}&observation_date_to=${toDate}&entry_type=${entryType}`),
+                fetch(`{% url 'wamtram2:export_data' %}?action=get_sexes&observation_date_from=${fromDate}&observation_date_to=${toDate}&entry_type=${entryType}`)
+            ])
                 .then(responses => Promise.all(responses.map(r => r.json())))
                 .then(([locationsData, placesData, speciesData, sexesData]) => {
                     updateSelectOptions('location_code', locationsData.locations);
@@ -208,60 +216,68 @@
                     console.error('Error:', error);
                     hideLoadingSpinner();
                 });
-            }
         }
+    }
 
-        // Update places based on selected location
-        function updatePlaces() {
-            const fromDate = document.getElementById('observation_date_from').value;
-            const toDate = document.getElementById('observation_date_to').value;
-            const locationCode = document.getElementById('location_code').value;
-            const entryType = document.getElementById('entry_type').value;
+    // Update places based on selected location
+    function updatePlaces() {
+        const fromDate = document.getElementById('observation_date_from').value;
+        const toDate = document.getElementById('observation_date_to').value;
+        const locationCode = document.getElementById('location_code').value;
+        const entryType = document.getElementById('entry_type').value;
 
-            if (fromDate && toDate) {
-                showLoadingSpinner();
-                
-                fetch(`{% url 'wamtram2:export_data' %}?action=get_places&observation_date_from=${fromDate}&observation_date_to=${toDate}&location_code=${locationCode}&entry_type=${entryType}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        updateSelectOptions('place_code', data.places);
-                        hideLoadingSpinner();
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        hideLoadingSpinner();
-                    });
-            }
+        if (fromDate && toDate) {
+            showLoadingSpinner();
+
+            fetch(`{% url 'wamtram2:export_data' %}?action=get_places&observation_date_from=${fromDate}&observation_date_to=${toDate}&location_code=${locationCode}&entry_type=${entryType}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateSelectOptions('place_code', data.places);
+                    hideLoadingSpinner();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    hideLoadingSpinner();
+                });
         }
+    }
 
-        // Update select options dynamically
-        function updateSelectOptions(selectId, options) {
-            const select = document.getElementById(selectId);
-            const label = select.previousElementSibling.textContent;
-            select.innerHTML = `<option value="">All ${label}</option>`;
-            options.forEach(function(option) {
-                const optionElement = document.createElement('option');
-                optionElement.value = option.value;
-                optionElement.textContent = option.label;
-                select.appendChild(optionElement);
-            });
-        }
+    // Update select options dynamically
+    function updateSelectOptions(selectId, options) {
+        const select = document.getElementById(selectId);
+        const label = select.previousElementSibling.textContent;
 
-        // Event Listeners
-        document.getElementById('entry_type').addEventListener('change', loadFilters);
-        document.getElementById('observation_date_from').addEventListener('change', loadFilters);
-        document.getElementById('observation_date_to').addEventListener('change', loadFilters);
-        document.getElementById('location_code').addEventListener('change', function() {
-            // Clear place selection when location changes
-            document.getElementById('place_code').value = '';
-            updatePlaces();
+        // Clear options safely
+        select.innerHTML = '';
+
+        // Add default option safely
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = `All ${label}`;
+        select.appendChild(defaultOption);
+        options.forEach(function (option) {
+            const optionElement = document.createElement('option');
+            optionElement.value = option.value;
+            optionElement.textContent = option.label;
+            select.appendChild(optionElement);
         });
+    }
 
-        // Initialize select2 for all select elements
-        $(document).ready(function() {
-            $('.select2').select2({
-                theme: 'bootstrap4'
-            });
+    // Event Listeners
+    document.getElementById('entry_type').addEventListener('change', loadFilters);
+    document.getElementById('observation_date_from').addEventListener('change', loadFilters);
+    document.getElementById('observation_date_to').addEventListener('change', loadFilters);
+    document.getElementById('location_code').addEventListener('change', function () {
+        // Clear place selection when location changes
+        document.getElementById('place_code').value = '';
+        updatePlaces();
+    });
+
+    // Initialize select2 for all select elements
+    $(document).ready(function () {
+        $('.select2').select2({
+            theme: 'bootstrap4'
         });
-    </script>
+    });
+</script>
 {% endblock %}
