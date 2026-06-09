@@ -19,7 +19,7 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-  "django==4.2.29",
+  "django==4.2.30",
   "django-extensions==3.2.3",
   "dj-database-url==3.0.1",
   "gunicorn==23.0.0",
