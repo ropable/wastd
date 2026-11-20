@@ -3,7 +3,7 @@ import json
 import operator
 import re
 import traceback
-from datetime import datetime, time, timedelta, timezone as dt_timezone
+from datetime import date, datetime, time, timedelta, timezone as dt_timezone
 from functools import reduce
 import pandas as pd
 from django.apps import apps
@@ -621,11 +621,13 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
         if (
             self.request.user.groups.filter(name="WAMTRAM2_VOLUNTEER").exists()
             and observation_date
-            and observation_date.year != timezone.now().year
+            and not (
+                date(2026, 7, 1) <= observation_date.date() <= date(2027, 6, 30)
+            )
         ):
             form.add_error(
                 "observation_date",
-                "Volunteers can only enter observations for the current year."
+                "Volunteers can only enter observations between 1 July 2026 and 30 June 2027."
             )
             return self.form_invalid(form)
 
@@ -678,6 +680,9 @@ class TrtDataEntryFormView(LoginRequiredMixin, FormView):
             dict: The context data.
         """
         context = super().get_context_data(**kwargs)
+        context["is_volunteer"] = self.request.user.groups.filter(
+            name="WAMTRAM2_VOLUNTEER"
+        ).exists()
         entry_id = self.kwargs.get("entry_id")
         batch_id = self.kwargs.get("batch_id")
         cookies_key_prefix = batch_id
@@ -4321,11 +4326,22 @@ class TaggedStrandedTurtleReviewView(LoginRequiredMixin, UserPassesTestMixin, Te
        q = self.request.GET.get('q', '').strip()
        date_from = self.request.GET.get('date_from', '').strip()
        date_to = self.request.GET.get('date_to', '').strip()
+       tag_observation_exists = AnimalTagObservation.objects.filter(
+           encounter_id=OuterRef('pk'),
+           tag_type__in=self.FLIPPER_OR_PIT_TAG_TYPES,
+       )
+
        encounters = AnimalEncounter.objects.filter(
            species__in=self.TURTLE_SPECIES,
            health__in=DEATH_STAGES,
-           observations__tagobservation__tag_type__in=self.FLIPPER_OR_PIT_TAG_TYPES,
-       ).select_related('site', 'area', 'observer', 'reporter').distinct().order_by('-when')
+       ).annotate(
+           has_relevant_tag=Exists(tag_observation_exists),
+       ).filter(
+           has_relevant_tag=True,
+       ).select_related(
+           'site', 'area', 'observer', 'reporter'
+       ).order_by('-when')
+
        if q:
            encounters = encounters.filter(
                Q(observations__tagobservation__name__icontains=q) |
